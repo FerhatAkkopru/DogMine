@@ -10,20 +10,34 @@ Kullanıcı Türkçe konuşuyor. Açıklamaları Türkçe, kısa ve adım adım 
 - Hedef: önce Android (Google Play), sonra iOS. Geliştirme Mac (Apple Silicon) üzerinde, test telefonu iPhone.
 - Ekran: dikey, 1080×1920 referans.
 - Girdi: yeni Input System (`UnityEngine.InputSystem`, `Pointer.current`). Eski `Input.GetMouseButton` kullanma.
-- Metin: şimdilik `TextMesh` + `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`. Arayüz büyüyünce TextMeshPro / uGUI'ye geçilebilir.
-- Görseller: henüz çizim yok. Kareler kod içinde üretilen 1×1 beyaz sprite ile renklendiriliyor. Mekanikler oturmadan çizime geçme.
-- Kodlar `Assets/Scripts/` altında. Sınıf adı = dosya adı.
+- Metin: arayüzde uGUI `Text`, bahçedeki rakamlarda `TextMesh`; ikisi de `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`. TextMeshPro'ya ileride geçilebilir.
+- Görseller: elle çizim yok. `ArtPainter` her şeyi kodla (SDF şekilleriyle) çiziyor; görünümler yalnızca `IGameArt` arayüzünü tanıyor (`ProceduralArt` onu uyguluyor). Gerçek çizimler 6. adımda `IGameArt`'ın yeni bir uygulamasıyla takılacak.
+- Kodlar `Assets/Scripts/` altında. Sınıf adı = dosya adı (bir dosyada tek üst düzey tip).
+- Ayrıntılı mimari ve plan: `docs/PLAN.md`.
+
+### Mimari (kısa)
+
+- `Assets/Scripts/Core/` → saf C#, Unity'yi tanımaz (`UyuyanKopekler.Core.asmdef`, `noEngineReferences`). Kurallar burada: `BoardModel` (ızgara), `GameSession` (can/hamle/hedef), `IRoundGoal` hedefleri, `IGameMode` modları (`ClassicMode`, `AdventureMode`, `LevelCatalog`), kayıt modelleri (`PlayerProgress`, `GameSettings`, `ISaveStore`).
+- `Assets/Scripts/Game/` → Unity tarafı (`UyuyanKopekler.Game.asmdef`):
+  - `App/`: `GameBootstrap` (sahnedeki tek bileşen, her şeyi kurar), `AppController` (ekran akışı), `PlayerPrefsSaveStore`, `Haptics`, `BackButton`.
+  - `Board/`: `BoardView` + `TileView` (çizim ve animasyon), `BoardInput` (dokunma), `BoardCamera` (sığdırma), `RoundController` (bir turun akışı).
+  - `Art/`: `Palette`, `Sdf`, `PixelCanvas`, `ArtPainter`, `IGameArt`, `ProceduralArt`.
+  - `UI/`: `UiRoot`, `UiFactory`, `UiScreen`, `DialogPanel`, `HintToast`, `PillToggle`... ve `UI/Screens/` altında ekranlar.
+- `Assets/Tests/EditMode/` → Core için NUnit testleri (Unity: Window → General → Test Runner → EditMode → Run All).
+- Sahne: `SampleScene` içinde yalnızca `Main Camera`, `Global Light 2D` ve `Game` (`GameBootstrap`) var. Arayüz ve bahçe koddan kuruluyor.
 
 ## Şu anki durum
 
-`Assets/Scripts/Board.cs` (sahnede `Board` adlı boş nesneye ekli) çalışıyor:
-- Izgara (varsayılan 8×10, 12 köpek), ilk dokunuş güvenli
-- Dokun: kaz, boş alan yayılarak açılır, rakamlar renkli
-- Basılı tut (0.35 sn) ya da sağ tık: mama kabı (işaret)
-- Açık rakama dokun: işaret sayısı tutuyorsa komşuları açar
-- 3 can; köpeğe denk gelince can gider, 0'da kaybedilir
-- Üstte sayaç (kalan köpek, can), bitişte mesaj paneli, dokununca yeni oyun
-- "Bir mama kabı boş karede" uyarısı (kazılacak kare kalmadı ama oyun bitmedi)
+Adım 1 bitti (açılış ekranı + iki modun iskeleti + kodla çizilmiş tasarımlar):
+- Açılış: nefes alan uyuyan köpek logosu ve Zzz, Klasik / Macera düğmeleri (en iyi skor ve bölüm bilgisiyle), Koleksiyon ve Ayarlar.
+- Oynanış (her iki modda): ilk dokunuş güvenli; dokun = kaz (dalga animasyonuyla yayılır), basılı tut (0.35 sn) ya da sağ tık = mama kabı, açık rakama dokun = çevreyi aç; köpek uyanınca "Hav!", sarsıntı, titreşim ve kalp gider; "mama kabı boş karede" uyarısı.
+- Üst bar: mola düğmesi, başlık (Bahçe N / Bölüm N), mod satırı (puan + seri ya da hedef ilerlemesi), kalpler, kalan köpek. Altta ipucu balonu.
+- Klasik: her bahçede 3 can, bahçeler büyür (`ClassicDifficulty`), kare başına 10 puan + bahçe bonusu × seri; can kaybedince seri sıfırlanır; koşu bitince en yüksek skor kaydedilir.
+- Macera: 12 bölümlük harita (kıvrımlı patika, bitenler yeşil, sıradaki turuncu ve nabız gibi atıyor, kilitliler gri); hedefler: bahçeyi temizle / hiç can kaybetmeden bitir / N hamlede bitir; bölüm girişi penceresi; ilerleme kaydediliyor.
+- Pencereler: mola, sonuç, bölüm girişi, sıfırlama onayı (tek `DialogPanel`). Android geri tuşu (bilgisayarda Esc) çalışıyor.
+- Ayarlar: titreşim, ses (henüz ses yok), ilerlemeyi sıfırla. Koleksiyon: kemik/yıldız/inci/altın tasma kartları (sayılar 2. adımda bağlanacak).
+- Kayıt: `PlayerPrefs` içinde JSON (`progress.v1`, `settings.v1`).
+- Player ayarı: ekran yönü Portrait.
 
 ## Onaylanan tasarım
 
@@ -51,8 +65,8 @@ Kullanıcı Türkçe konuşuyor. Açıklamaları Türkçe, kısa ve adım adım 
 
 ## Yapım sırası
 
-1. Açılış ekranı ve iki modun iskeleti  ← sıradaki adım
-2. Kemik, yıldız toplama ve kedi yardımcısı (kovalama animasyonu dahil)
+1. ~~Açılış ekranı ve iki modun iskeleti~~ (bitti)
+2. Kemik, yıldız toplama ve kedi yardımcısı (kovalama animasyonu dahil)  ← sıradaki adım
 3. Kombo sistemi
 4. Macera bölümleri ve hedefleri
 5. Günlük görevler
@@ -61,6 +75,10 @@ Kullanıcı Türkçe konuşuyor. Açıklamaları Türkçe, kısa ve adım adım 
 
 ## Kurallar
 
-- Board.cs büyüdükçe sorumlulukları ayır (ör. BoardLogic, BoardView, GameManager, Ui) ama tek seferde dev bir yeniden yazım yapma; her adım editörde test edilebilir kalsın.
+- Sorumlulukları ayrı tut: kurallar Core'da (Unity'siz ve testli), çizim/girdi/arayüz Game'de. Tek seferde dev bir yeniden yazım yapma; her adım editörde test edilebilir kalsın.
+- Yeni hedef = `IRoundGoal` uygulayan yeni sınıf; yeni mod = `IGameMode`; yeni görsel = `IGameArt`'a özellik + `ArtPainter`'da çizim. Mevcut sınıfları büyütmek yerine genişlet.
+- Core'a eklenen her kural için `Assets/Tests/EditMode/` altına test yaz.
+- Arayüzü ve sahne nesnelerini koddan kur (`UiFactory`, `GameBootstrap`); kullanıcıdan editörde elle nesne kurmasını isteme, gerekmedikçe.
+- Eski `UnityEngine.Input` sınıfını hiç kullanma (proje yalnızca yeni Input System'e ayarlı; çalışırken hata verir).
 - Her adımdan sonra kullanıcıya Play'e basıp neyi denemesi gerektiğini söyle.
 - Reklam kuralları (ileride): geçiş reklamı en fazla 2–3 bölümde bir, bölüm ortasında asla, ilk oturumda hiç.
