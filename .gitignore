@@ -1,0 +1,37 @@
+# Unity tarafından üretilen klasörler (git'e girmez)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE dosyaları
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Derleme çıktıları
+*.apk
+*.aab
+*.unitypackage
+*.app
+crashlytics-build.properties
+
+# macOS
+.DS_Store
