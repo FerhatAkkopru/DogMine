@@ -4,35 +4,43 @@ using UnityEngine.UI;
 
 namespace UyuyanKopekler.UI
 {
-    // Düğmeye basılınca hafifçe küçülür, bırakınca geri büyür.
+    // Düğmeye basılınca yüzü sert gölgesinin üstüne doğru "çöker", bırakınca geri kalkar.
     public sealed class ButtonFeedback : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
     {
-        const float PressedScale = 0.93f;
-        const float Speed = 18f;
+        const float Speed = 30f;
 
         Selectable selectable;
-        float target = 1f;
+        RectTransform body;
+        float depth;
+        float target;
 
-        void Awake() => selectable = GetComponent<Selectable>();
+        public void Init(Selectable owner, RectTransform pressedPart, float pressDepth)
+        {
+            selectable = owner;
+            body = pressedPart;
+            depth = pressDepth;
+        }
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (selectable == null || selectable.interactable) target = PressedScale;
+            if (selectable == null || selectable.interactable) target = depth;
         }
 
-        public void OnPointerUp(PointerEventData eventData) => target = 1f;
-        public void OnPointerExit(PointerEventData eventData) => target = 1f;
+        public void OnPointerUp(PointerEventData eventData) => target = 0f;
+        public void OnPointerExit(PointerEventData eventData) => target = 0f;
 
         void OnDisable()
         {
-            target = 1f;
-            transform.localScale = Vector3.one;
+            target = 0f;
+            if (body != null) body.anchoredPosition = Vector2.zero;
         }
 
         void Update()
         {
-            float s = Mathf.Lerp(transform.localScale.x, target, 1f - Mathf.Exp(-Speed * Time.unscaledDeltaTime));
-            transform.localScale = new Vector3(s, s, 1f);
+            if (body == null) return;
+            var position = body.anchoredPosition;
+            float y = Mathf.Lerp(position.y, -target, 1f - Mathf.Exp(-Speed * Time.unscaledDeltaTime));
+            body.anchoredPosition = new Vector2(0f, y);
         }
     }
 }

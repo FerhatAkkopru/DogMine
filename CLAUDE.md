@@ -10,8 +10,8 @@ Kullanıcı Türkçe konuşuyor. Açıklamaları Türkçe, kısa ve adım adım 
 - Hedef: önce Android (Google Play), sonra iOS. Geliştirme Mac (Apple Silicon) üzerinde, test telefonu iPhone.
 - Ekran: dikey, 1080×1920 referans.
 - Girdi: yeni Input System (`UnityEngine.InputSystem`, `Pointer.current`). Eski `Input.GetMouseButton` kullanma.
-- Metin: arayüzde uGUI `Text`, bahçedeki rakamlarda `TextMesh`; ikisi de `Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")`. TextMeshPro'ya ileride geçilebilir.
-- Görseller: elle çizim yok. `ArtPainter` her şeyi kodla (SDF şekilleriyle) çiziyor; görünümler yalnızca `IGameArt` arayüzünü tanıyor (`ProceduralArt` onu uyguluyor). Gerçek çizimler 6. adımda `IGameArt`'ın yeni bir uygulamasıyla takılacak.
+- Metin: arayüzde uGUI `Text`, bahçedeki rakamlarda `TextMesh`; yazı tipi **Shantell Sans** (`Assets/Resources/Fonts`, OFL). Arial/LegacyRuntime kullanma.
+- Görseller: **tasarım rehberi `docs/TASARIM.md`** (sınırlı palet, mürekkep fırça çizgisi, kâğıt zemin, sert gölge). Bütün çizimler `tools/art/` altındaki Python betikleriyle tarif edilip `python3 tools/art/build.py` ile `Assets/Resources/Art`'a üretiliyor. PNG'leri elle düzenleme; betiği değiştirip yeniden üret. Görünümler yalnızca `IGameArt` arayüzünü tanıyor (`IllustratedArt` onu uyguluyor).
 - Kodlar `Assets/Scripts/` altında. Sınıf adı = dosya adı (bir dosyada tek üst düzey tip).
 - Ayrıntılı mimari ve plan: `docs/PLAN.md`.
 
@@ -21,15 +21,17 @@ Kullanıcı Türkçe konuşuyor. Açıklamaları Türkçe, kısa ve adım adım 
 - `Assets/Scripts/Game/` → Unity tarafı (`UyuyanKopekler.Game.asmdef`):
   - `App/`: `GameBootstrap` (sahnedeki tek bileşen, her şeyi kurar), `AppController` (ekran akışı), `PlayerPrefsSaveStore`, `Haptics`, `BackButton`.
   - `Board/`: `BoardView` + `TileView` (çizim ve animasyon), `BoardInput` (dokunma), `BoardCamera` (sığdırma), `RoundController` (bir turun akışı).
-  - `Art/`: `Palette`, `Sdf`, `PixelCanvas`, `ArtPainter`, `IGameArt`, `ProceduralArt`.
-  - `UI/`: `UiRoot`, `UiFactory`, `UiScreen`, `DialogPanel`, `HintToast`, `PillToggle`... ve `UI/Screens/` altında ekranlar.
+  - `Art/`: `Palette` (renkler), `IGameArt` (görsel sözleşmesi), `IllustratedArt` (Resources'tan yükler).
+  - `UI/`: `UiRoot`, `UiFactory` (kart = sert gölge + yüz + kontur), `Card`, `UiScreen`, `DialogPanel`, `HintToast`, `PillToggle`, `ButtonFeedback`... ve `UI/Screens/` altında ekranlar.
+- `tools/art/` → çizim hattı: `sketch.py` (fırça/eğri/doku), `style.py` (palet, kürkler), `dogs.py` (köpek pozları), `props.py` (kareler, eşyalar, ikonlar, arayüz, köpek yatağı), `build.py` (üretim + .meta).
 - `Assets/Tests/EditMode/` → Core için NUnit testleri (Unity: Window → General → Test Runner → EditMode → Run All).
 - Sahne: `SampleScene` içinde yalnızca `Main Camera`, `Global Light 2D` ve `Game` (`GameBootstrap`) var. Arayüz ve bahçe koddan kuruluyor.
 
 ## Şu anki durum
 
-Adım 1 bitti (açılış ekranı + iki modun iskeleti + kodla çizilmiş tasarımlar):
-- Açılış: nefes alan uyuyan köpek logosu ve Zzz, Klasik / Macera düğmeleri (en iyi skor ve bölüm bilgisiyle), Koleksiyon ve Ayarlar.
+Adım 1 bitti (açılış ekranı + iki modun iskeleti) ve görsel tasarım baştan yapıldı (`docs/TASARIM.md`):
+- Açılış: el yazısı başlık, köpek yatağında uyuyan üç köpek (nefes alıyorlar, "z" çıkıyor), Klasik / Macera düğmeleri (en iyi skor ve bölüm bilgisiyle), Koleksiyon ve Ayarlar.
+- Köpek kadrosu: 6 kürk × 3 poz (uyuyan, kıvrılmış, uyanık-havlayan). Bahçede her kare sabit bir kürk seçer; kazanınca uyanmayanlar kıvrılmış uyurken, kaybedince hepsi havlarken görünür.
 - Oynanış (her iki modda): ilk dokunuş güvenli; dokun = kaz (dalga animasyonuyla yayılır), basılı tut (0.35 sn) ya da sağ tık = mama kabı, açık rakama dokun = çevreyi aç; köpek uyanınca "Hav!", sarsıntı, titreşim ve kalp gider; "mama kabı boş karede" uyarısı.
 - Üst bar: mola düğmesi, başlık (Bahçe N / Bölüm N), mod satırı (puan + seri ya da hedef ilerlemesi), kalpler, kalan köpek. Altta ipucu balonu.
 - Klasik: her bahçede 3 can, bahçeler büyür (`ClassicDifficulty`), kare başına 10 puan + bahçe bonusu × seri; can kaybedince seri sıfırlanır; koşu bitince en yüksek skor kaydedilir.
@@ -66,19 +68,21 @@ Adım 1 bitti (açılış ekranı + iki modun iskeleti + kodla çizilmiş tasar�
 ## Yapım sırası
 
 1. ~~Açılış ekranı ve iki modun iskeleti~~ (bitti)
-2. Kemik, yıldız toplama ve kedi yardımcısı (kovalama animasyonu dahil)  ← sıradaki adım
-3. Kombo sistemi
-4. Macera bölümleri ve hedefleri
-5. Günlük görevler
-6. Gerçek çizimler, animasyonlar, sesler
-7. Ortak altyapı: kayıt, AdMob (ödüllü + geçiş reklamı), Firebase/GameAnalytics olayları, "Reklamları kaldır" satın alımı
+2. Animasyonlar (köpekler: kuyruk, kulak, uyanınca zıplama) ve "yakında" denen şeylerin yapılması (koleksiyon sayıları, ses)  ← kullanıcının istediği sıradaki adım
+3. Kemik, yıldız toplama ve kedi yardımcısı (kovalama animasyonu dahil)
+4. Kombo sistemi
+5. Macera bölümleri ve hedefleri
+6. Günlük görevler
+7. Sesler, ek çizimler (mod temaları)
+8. Ortak altyapı: kayıt, AdMob (ödüllü + geçiş reklamı), Firebase/GameAnalytics olayları, "Reklamları kaldır" satın alımı
 
 ## Kurallar
 
 - Sorumlulukları ayrı tut: kurallar Core'da (Unity'siz ve testli), çizim/girdi/arayüz Game'de. Tek seferde dev bir yeniden yazım yapma; her adım editörde test edilebilir kalsın.
-- Yeni hedef = `IRoundGoal` uygulayan yeni sınıf; yeni mod = `IGameMode`; yeni görsel = `IGameArt`'a özellik + `ArtPainter`'da çizim. Mevcut sınıfları büyütmek yerine genişlet.
+- Yeni hedef = `IRoundGoal` uygulayan yeni sınıf; yeni mod = `IGameMode`; yeni görsel = `tools/art`'ta çizim + `IGameArt`'a özellik + `IllustratedArt`'ta yükleme. Mevcut sınıfları büyütmek yerine genişlet.
 - Core'a eklenen her kural için `Assets/Tests/EditMode/` altına test yaz.
 - Arayüzü ve sahne nesnelerini koddan kur (`UiFactory`, `GameBootstrap`); kullanıcıdan editörde elle nesne kurmasını isteme, gerekmedikçe.
+- Tasarımda `docs/TASARIM.md`'ye uy: paletin dışına çıkma, gradyan/parlak efekt kullanma, her kart ve düğme `UiFactory.Card` ile (sert gölge + kontur). Yeni çizimi önce `tools/art`'ta üret, önizle, sonra koda bağla.
 - Eski `UnityEngine.Input` sınıfını hiç kullanma (proje yalnızca yeni Input System'e ayarlı; çalışırken hata verir).
 - Her adımdan sonra kullanıcıya Play'e basıp neyi denemesi gerektiğini söyle.
 - Reklam kuralları (ileride): geçiş reklamı en fazla 2–3 bölümde bir, bölüm ortasında asla, ilk oturumda hiç.

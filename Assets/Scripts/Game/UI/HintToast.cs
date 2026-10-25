@@ -5,7 +5,7 @@ using UyuyanKopekler.Art;
 
 namespace UyuyanKopekler.UI
 {
-    // Alt kısımda beliren koyu ipucu balonu. Süre verilirse kendiliğinden kaybolur.
+    // Alt kısımda beliren lacivert ipucu balonu. Süre verilirse kendiliğinden kaybolur.
     public sealed class HintToast : MonoBehaviour
     {
         const float FadeSeconds = 0.2f;
@@ -16,23 +16,28 @@ namespace UyuyanKopekler.UI
 
         public static HintToast Create(UiFactory ui, Transform parent, float width)
         {
-            var pill = ui.RoundedBox(parent, "İpucu", Palette.HintBack, 1.3f);
-            UiFactory.Place(pill.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(width, 0f));
+            var card = ui.Card(parent, "İpucu", Palette.Navy, 7f, circle: false, cornerScale: 1.2f);
+            UiFactory.Place(card.Root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 34f), new Vector2(width, 0f));
 
-            var layout = pill.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(44, 44, 26, 26);
+            // Yükseklik yazıya göre: düzen bileşenleri kartın köküne konur.
+            var layout = card.Root.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(48, 48, 26, 30);
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
-            pill.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            card.Root.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var toast = pill.gameObject.AddComponent<HintToast>();
-            toast.group = pill.gameObject.AddComponent<CanvasGroup>();
+            // Gölge ve gövde düzenin dışında kalsın, yalnızca yazı ölçülsün.
+            card.Shadow.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            card.Body.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            var toast = card.Root.gameObject.AddComponent<HintToast>();
+            toast.group = card.Root.gameObject.AddComponent<CanvasGroup>();
             toast.group.blocksRaycasts = false;
             toast.group.alpha = 0f;
-            toast.label = ui.Label(pill.transform, "Yazı", "", 40, Palette.Cream);
-            pill.gameObject.SetActive(false);
+            toast.label = ui.Label(card.Root, "Yazı", "", 38, Palette.Cream);
+            card.Root.gameObject.SetActive(false);
             return toast;
         }
 

@@ -108,11 +108,11 @@ namespace UyuyanKopekler.Game
             var level = adventure.GetLevel(number);
             ui.Dialog.Show(new DialogContent
             {
-                Icon = art.Star,
+                Icon = art.SleepingDog(number % art.DogCoatCount),
                 Title = $"Bölüm {number}",
                 Body = $"Hedef: {level.Goal.Title}\n{level.Board.Columns}×{level.Board.Rows} bahçe  ·  {level.Board.Dogs} köpek  ·  {level.Hearts} can",
                 PrimaryLabel = "Başla",
-                PrimaryColor = Palette.Orange,
+                PrimaryColor = Palette.Coral,
                 OnPrimary = () =>
                 {
                     adventure.SelectLevel(number);
@@ -138,7 +138,7 @@ namespace UyuyanKopekler.Game
                 : "Çıkarsan bu bölüme baştan başlarsın.";
             ui.Dialog.Show(new DialogContent
             {
-                Icon = art.DogSleeping,
+                Icon = art.CurledDog(3),
                 Title = "Mola",
                 Body = $"Köpekler hâlâ uyuyor.\n{warning}",
                 PrimaryLabel = "Devam et",
@@ -161,11 +161,11 @@ namespace UyuyanKopekler.Game
             SaveProgress();
             ui.Dialog.Show(new DialogContent
             {
-                Icon = report.IsVictory ? art.DogSleeping : art.DogAwake,
+                Icon = report.IsVictory ? art.CurledDog(0) : art.AwakeDog(2),
                 Title = report.Title,
                 Body = report.Body,
                 PrimaryLabel = report.PrimaryLabel,
-                PrimaryColor = report.IsVictory ? Palette.Green : Palette.Orange,
+                PrimaryColor = report.IsVictory ? Palette.Mint : Palette.Coral,
                 OnPrimary = () => Handle(report.PrimaryAction),
                 SecondaryLabel = report.SecondaryLabel,
                 OnSecondary = () => Handle(report.SecondaryAction)
@@ -201,11 +201,11 @@ namespace UyuyanKopekler.Game
         {
             ui.Dialog.Show(new DialogContent
             {
-                Icon = art.DogAwake,
+                Icon = art.AwakeDog(1),
                 Title = "Emin misin?",
                 Body = "Rekorların ve açtığın bölümler silinecek.",
                 PrimaryLabel = "Sıfırla",
-                PrimaryColor = Palette.Red,
+                PrimaryColor = Palette.Coral,
                 OnPrimary = ResetProgress,
                 SecondaryLabel = "Vazgeç"
             });

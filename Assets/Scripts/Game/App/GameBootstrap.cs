@@ -21,7 +21,7 @@ namespace UyuyanKopekler.Game
         {
             Application.targetFrameRate = 60; // mobilde varsayılan 30
 
-            IGameArt art = new ProceduralArt();
+            IGameArt art = new IllustratedArt();
             ISaveStore store = new PlayerPrefsSaveStore();
             var progress = store.Load<PlayerProgress>(SaveKeys.Progress);
             var settings = store.Load<GameSettings>(SaveKeys.Settings);
@@ -66,7 +66,7 @@ namespace UyuyanKopekler.Game
             }
             mainCamera.orthographic = true;
             mainCamera.clearFlags = CameraClearFlags.SolidColor;
-            mainCamera.backgroundColor = Palette.GardenBottom;
+            mainCamera.backgroundColor = Palette.Paper;
             return mainCamera;
         }
     }

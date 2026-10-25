@@ -4,12 +4,13 @@ using UyuyanKopekler.Art;
 
 namespace UyuyanKopekler.UI
 {
-    // Arayüz parçalarını aynı stille kodla kurar (düğme, panel, yazı, üst bar...).
-    // Ölçüler 1080×1920 referans ekrana göredir.
+    // Arayüz parçalarını aynı elle çizilmiş stille kodla kurar: kâğıt zemin, mürekkep kontur,
+    // sert gölge, Shantell Sans yazı. Ölçüler 1080×1920 referans ekrana göredir.
     public sealed class UiFactory
     {
         public const int UiLayer = 5;
-        public const float TopBarHeight = 160f;
+        public const float TopBarHeight = 150f;
+        public const float ShadowDepth = 10f;
 
         public IGameArt Art { get; }
 
@@ -64,23 +65,7 @@ namespace UyuyanKopekler.UI
             return rt;
         }
 
-        // ---------- Efektler ----------
-
-        public static void AddShadow(Graphic graphic, Color color, Vector2 distance)
-        {
-            var shadow = graphic.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = color;
-            shadow.effectDistance = distance;
-        }
-
-        public static void AddOutline(Graphic graphic, Color color, float distance)
-        {
-            var outline = graphic.gameObject.AddComponent<Outline>();
-            outline.effectColor = color;
-            outline.effectDistance = new Vector2(distance, -distance);
-        }
-
-        // ---------- Parçalar ----------
+        // ---------- Temel parçalar ----------
 
         public Image Picture(Transform parent, string name, Sprite sprite, Color color)
         {
@@ -92,46 +77,15 @@ namespace UyuyanKopekler.UI
             return image;
         }
 
-        // Yuvarlatılmış köşeli düz kutu. cornerScale büyüdükçe köşeler küçülür.
-        public Image RoundedBox(Transform parent, string name, Color color, float cornerScale = 1f)
-        {
-            var image = CreateRect(name, parent).gameObject.AddComponent<Image>();
-            image.sprite = Art.RoundedRect;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = cornerScale;
-            image.color = color;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        // Gölgeli krem kart.
-        public Image Panel(Transform parent, string name, Color color, float cornerScale = 1f)
-        {
-            var image = RoundedBox(parent, name, color, cornerScale);
-            AddShadow(image, Palette.Shadow, new Vector2(0f, -10f));
-            return image;
-        }
-
-        // Ekranı en-boy oranını bozmadan kaplayan arka plan resmi.
-        public Image Background(Transform parent, Sprite sprite)
-        {
-            var holder = Stretch(CreateRect("Arka plan", parent));
-            var image = Picture(holder, "Resim", sprite, Color.white);
-            image.preserveAspect = false;
-            var fitter = image.gameObject.AddComponent<AspectRatioFitter>();
-            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-            fitter.aspectRatio = sprite.rect.width / sprite.rect.height;
-            return image;
-        }
-
+        // display: başlık yazı tipi (daha kalın). Yazı tipleri zaten kalın; ayrıca kalınlaştırılmaz.
         public Text Label(Transform parent, string name, string text, int size, Color color,
-            TextAnchor alignment = TextAnchor.MiddleCenter)
+            TextAnchor alignment = TextAnchor.MiddleCenter, bool display = false)
         {
             var label = CreateRect(name, parent).gameObject.AddComponent<Text>();
-            label.font = Art.Font;
+            label.font = display ? Art.DisplayFont : Art.BodyFont;
             label.text = text;
             label.fontSize = size;
-            label.fontStyle = FontStyle.Bold;
+            label.fontStyle = FontStyle.Normal;
             label.color = color;
             label.alignment = alignment;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -140,58 +94,129 @@ namespace UyuyanKopekler.UI
             return label;
         }
 
-        // Renkli, alt kenarı koyu ("şeker") düğme; yazı ortada.
-        public Button TextButton(Transform parent, string name, string text, Color color, int fontSize = 60)
+        // Ekranı dolduran kâğıt zemin.
+        public Image Background(Transform parent)
         {
-            var image = RoundedBox(parent, name, color);
-            image.raycastTarget = true;
-            AddShadow(image, Palette.Darker(color, 0.3f), new Vector2(0f, -12f));
+            var image = CreateRect("Kâğıt", parent).gameObject.AddComponent<Image>();
+            image.sprite = Art.Paper;
+            image.type = Image.Type.Tiled;
+            image.color = Color.white;
+            image.raycastTarget = false;
+            Stretch(image.rectTransform);
+            return image;
+        }
 
-            var button = image.gameObject.AddComponent<Button>();
-            button.transition = Selectable.Transition.None;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-            button.targetGraphic = image;
-            image.gameObject.AddComponent<ButtonFeedback>();
+        // Elle çizilmiş kart: sert gölge + renkli yüz + mürekkep kontur. İçerik card.Body'ye eklenir.
+        // cornerScale büyüdükçe köşeler küçülür (ince hap şekilleri için).
+        public Card Card(Transform parent, string name, Color fill, float depth = ShadowDepth, bool circle = false, float cornerScale = 1f)
+        {
+            var root = CreateRect(name, parent);
 
-            var label = Label(image.transform, "Yazı", text, fontSize, Color.white);
-            Stretch(label.rectTransform, 16f, 8f, 16f, 8f);
-            AddShadow(label, new Color(0f, 0f, 0f, 0.22f), new Vector2(0f, -3f));
+            var shadow = Shape(root, "Gölge", circle ? Art.CircleFill : Art.BoxFill, Palette.Shadow, circle, cornerScale);
+            shadow.rectTransform.offsetMin = new Vector2(0f, -depth);
+            shadow.rectTransform.offsetMax = new Vector2(0f, -depth);
+
+            var body = Stretch(CreateRect("Gövde", root));
+            var face = Shape(body, "Yüz", circle ? Art.CircleFill : Art.BoxFill, fill, circle, cornerScale);
+            var line = Shape(body, "Çizgi", circle ? Art.CircleLine : Art.BoxLine, Palette.Ink, circle, cornerScale);
+            return new Card(root, body, shadow, face, line, depth);
+        }
+
+        Image Shape(RectTransform parent, string name, Sprite sprite, Color color, bool circle, float cornerScale)
+        {
+            var image = CreateRect(name, parent).gameObject.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = color;
+            image.raycastTarget = false;
+            if (circle)
+            {
+                image.type = Image.Type.Simple;
+                image.preserveAspect = false;
+            }
+            else
+            {
+                image.type = Image.Type.Sliced;
+                image.pixelsPerUnitMultiplier = cornerScale;
+            }
+            Stretch(image.rectTransform);
+            return image;
+        }
+
+        // ---------- Düğmeler ----------
+
+        public Button TextButton(Transform parent, string name, string text, Color fill, int fontSize = 56) =>
+            TextButton(parent, name, text, fill, out _, fontSize);
+
+        // Renkli kart düğme, ortasında başlık yazısı.
+        public Button TextButton(Transform parent, string name, string text, Color fill, out Card card, int fontSize = 56)
+        {
+            card = Card(parent, name, fill);
+            var button = MakeButton(card);
+            var label = Label(card.Body, "Yazı", text, fontSize, Palette.Ink, TextAnchor.MiddleCenter, display: true);
+            Stretch(label.rectTransform, 20f, 6f, 20f, 6f);
             return button;
         }
 
-        // Yuvarlak, içinde ikon olan düğme.
-        public Button IconButton(Transform parent, string name, Sprite icon, Color color, Color iconColor, float iconScale = 0.6f)
+        public Button IconButton(Transform parent, string name, Sprite icon, Color fill, Color iconColor, float iconScale = 0.55f) =>
+            IconButton(parent, name, icon, fill, iconColor, out _, iconScale);
+
+        // Yuvarlak kart düğme (içine istenen şey card.Body'ye eklenir).
+        public Button CircleButton(Transform parent, string name, Color fill, out Card card)
         {
-            var image = Picture(parent, name, Art.Circle, color);
-            image.raycastTarget = true;
-            AddShadow(image, Palette.Darker(color, 0.3f), new Vector2(0f, -8f));
+            card = Card(parent, name, fill, ShadowDepth * 0.8f, circle: true);
+            return MakeButton(card);
+        }
 
-            var button = image.gameObject.AddComponent<Button>();
-            button.transition = Selectable.Transition.None;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-            button.targetGraphic = image;
-            image.gameObject.AddComponent<ButtonFeedback>();
-
-            var iconImage = Picture(image.transform, "İkon", icon, iconColor);
-            iconImage.rectTransform.anchorMin = new Vector2(0.5f - iconScale * 0.5f, 0.5f - iconScale * 0.5f);
-            iconImage.rectTransform.anchorMax = new Vector2(0.5f + iconScale * 0.5f, 0.5f + iconScale * 0.5f);
-            iconImage.rectTransform.offsetMin = Vector2.zero;
-            iconImage.rectTransform.offsetMax = Vector2.zero;
+        // Yuvarlak kart düğme, ortasında ikon.
+        public Button IconButton(Transform parent, string name, Sprite icon, Color fill, Color iconColor, out Card card, float iconScale = 0.55f)
+        {
+            var button = CircleButton(parent, name, fill, out card);
+            var image = Picture(card.Body, "İkon", icon, iconColor);
+            var rt = image.rectTransform;
+            rt.anchorMin = new Vector2(0.5f - iconScale * 0.5f, 0.5f - iconScale * 0.5f);
+            rt.anchorMax = new Vector2(0.5f + iconScale * 0.5f, 0.5f + iconScale * 0.5f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
             return button;
         }
+
+        static Button MakeButton(Card card)
+        {
+            card.Face.raycastTarget = true;
+            var button = card.Root.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.targetGraphic = card.Face;
+            card.Root.gameObject.AddComponent<ButtonFeedback>().Init(button, card.Body, card.ShadowDepth);
+            return button;
+        }
+
+        // ---------- Hazır parçalar ----------
 
         // Geri düğmeli, başlıklı üst bar (harita, ayarlar, koleksiyon ekranları için).
         public RectTransform TopBar(Transform parent, string title, out Button back)
         {
-            var bar = Panel(parent, "Üst bar", Palette.Cream).rectTransform;
-            TopStrip(bar, TopBarHeight, 24f, 20f);
+            var bar = TopStrip(CreateRect("Üst bar", parent), TopBarHeight, 32f, 24f);
 
-            back = IconButton(bar, "Geri", Art.IconBack, Palette.Orange, Color.white);
-            Place(back.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(90f, 0f), new Vector2(116f, 116f));
+            back = IconButton(bar, "Geri", Art.IconBack, Palette.Cream, Palette.Ink, 0.5f);
+            Place((RectTransform)back.transform, new Vector2(0f, 0.5f), new Vector2(58f, 4f), new Vector2(112f, 112f));
 
-            var label = Label(bar, "Başlık", title, 60, Palette.Ink);
-            Stretch(label.rectTransform, 180f, 0f, 180f, 0f);
+            var underline = Picture(bar, "Alt çizgi", Art.Underline, Palette.WithAlpha(Palette.Mustard, 0.85f));
+            underline.preserveAspect = false;
+            Place(underline.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -26f), new Vector2(330f, 44f));
+
+            var label = Label(bar, "Başlık", title, 70, Palette.Ink, TextAnchor.MiddleCenter, display: true);
+            Stretch(label.rectTransform, 150f, 0f, 150f, 0f);
             return bar;
+        }
+
+        // Arka plana serpiştirilen soluk süs (pati, kemik, yıldız...).
+        public Image Doodle(Transform parent, Sprite sprite, Color color, Vector2 anchor, Vector2 position, float size, float degrees)
+        {
+            var image = Picture(parent, "Süs", sprite, color);
+            Place(image.rectTransform, anchor, position, new Vector2(size, size));
+            image.rectTransform.localRotation = Quaternion.Euler(0f, 0f, degrees);
+            return image;
         }
     }
 }

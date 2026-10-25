@@ -42,29 +42,30 @@ namespace UyuyanKopekler.Game
             var view = go.AddComponent<BoardView>();
             view.art = art;
 
-            view.Backdrop = new GameObject("Çimen").AddComponent<SpriteRenderer>();
+            view.Backdrop = new GameObject("Kâğıt").AddComponent<SpriteRenderer>();
             view.Backdrop.transform.SetParent(go.transform, false);
-            view.Backdrop.sprite = art.GardenBackground;
+            view.Backdrop.sprite = art.Paper;
+            view.Backdrop.drawMode = SpriteDrawMode.Tiled;
             view.Backdrop.sortingOrder = -100;
 
             view.boardRoot = new GameObject("Kareler").transform;
             view.boardRoot.SetParent(go.transform, false);
 
             view.frameShadow = view.CreateFrame("Çerçeve gölgesi", Palette.Shadow, -11);
-            view.frameShadow.transform.localPosition = new Vector3(0f, -0.14f, 0f);
-            view.frame = view.CreateFrame("Çerçeve", Palette.BoardFrame, -10);
+            view.frameShadow.transform.localPosition = new Vector3(0.06f, -0.13f, 0f);
+            view.frame = view.CreateFrame("Çerçeve", Color.white, -10);
 
             var barkGo = new GameObject("Hav");
             barkGo.transform.SetParent(view.boardRoot, false);
             view.bark = barkGo.AddComponent<TextMesh>();
-            view.bark.font = art.Font;
+            view.bark.font = art.DisplayFont;
             view.bark.fontSize = 64;
             view.bark.characterSize = 0.13f;
             view.bark.anchor = TextAnchor.MiddleCenter;
-            view.bark.fontStyle = FontStyle.Bold;
+            view.bark.fontStyle = FontStyle.Normal;
             view.bark.text = "Hav!";
             var barkRenderer = barkGo.GetComponent<MeshRenderer>();
-            barkRenderer.sharedMaterial = art.Font.material;
+            barkRenderer.sharedMaterial = art.DisplayFont.material;
             barkRenderer.sortingOrder = 20;
             barkGo.SetActive(false);
             return view;
@@ -74,7 +75,7 @@ namespace UyuyanKopekler.Game
         {
             var sr = new GameObject(name).AddComponent<SpriteRenderer>();
             sr.transform.SetParent(boardRoot, false);
-            sr.sprite = art.BoardFrame;
+            sr.sprite = art.BoardBed;
             sr.drawMode = SpriteDrawMode.Sliced;
             sr.color = color;
             sr.sortingOrder = order;
@@ -128,21 +129,23 @@ namespace UyuyanKopekler.Game
         public void Refresh(Cell cell)
         {
             var tile = tiles[cell.X, cell.Y];
-            bool alternate = (cell.X + cell.Y) % 2 == 1;
             switch (board.GetState(cell))
             {
                 case CellState.Hidden:
-                    tile.ShowGrass(alternate, bowl: false);
+                    tile.ShowGrass(IsLight(cell), bowl: false);
                     break;
                 case CellState.Flagged:
-                    tile.ShowGrass(alternate, bowl: true);
+                    tile.ShowGrass(IsLight(cell), bowl: true);
                     break;
                 default:
-                    if (board.HasDog(cell)) tile.ShowWokenDog();
-                    else tile.ShowSoil(alternate, board.GetNearbyDogs(cell));
+                    if (board.HasDog(cell)) tile.ShowAwakeDog();
+                    else tile.ShowSoil(board.GetNearbyDogs(cell));
                     break;
             }
         }
+
+        // Dama tahtası: komşu çim kareleri iki tonda.
+        static bool IsLight(Cell cell) => (cell.X + cell.Y) % 2 == 1;
 
         // ---------- Animasyonlar ----------
 
@@ -161,13 +164,7 @@ namespace UyuyanKopekler.Game
                 Bark(dog);
             }
             if (move.WokeDog) Shake();
-
-            for (int i = 0; i < move.AutoFlagged.Count; i++)
-            {
-                var cell = move.AutoFlagged[i];
-                Refresh(cell);
-                tiles[cell.X, cell.Y].PopIcon(0.2f + i * 0.06f);
-            }
+            // Kazanınca otomatik konan mama kapları çizilmez: PlayWin uyuyan köpekleri gösterir.
         }
 
         public void PlayFlag(Cell cell)
@@ -176,11 +173,21 @@ namespace UyuyanKopekler.Game
             if (board.GetState(cell) == CellState.Flagged) tiles[cell.X, cell.Y].PopIcon(0f);
         }
 
-        // Kazanınca: dokunulan yerden yayılan sevinç dalgası.
+        // Kazanınca: dokunulan yerden yayılan sevinç dalgası; hiç uyanmayan köpekler
+        // kıvrılmış uyurken ortaya çıkar.
         public void PlayWin(Cell focus)
         {
             foreach (var cell in board.AllCells())
-                tiles[cell.X, cell.Y].Bump(0.3f + cell.StepsTo(focus) * 0.04f);
+            {
+                var tile = tiles[cell.X, cell.Y];
+                float delay = 0.3f + cell.StepsTo(focus) * 0.04f;
+                if (board.HasDog(cell) && board.GetState(cell) != CellState.Revealed)
+                {
+                    tile.ShowSleepingDog();
+                    tile.PopIcon(delay);
+                }
+                tile.Bump(delay);
+            }
         }
 
         // Kaybedince: kalan köpekler sırayla uyanır, yanlış mama kapları işaretlenir.
@@ -192,12 +199,12 @@ namespace UyuyanKopekler.Game
                 var tile = tiles[cell.X, cell.Y];
                 if (board.HasDog(cell) && state == CellState.Hidden)
                 {
-                    tile.ShowWokenDog();
+                    tile.ShowAwakeDog();
                     tile.PopIcon(0.1f + cell.StepsTo(focus) * 0.06f);
                 }
                 else if (!board.HasDog(cell) && state == CellState.Flagged)
                 {
-                    tile.ShowWrongBowl();
+                    tile.ShowWrongBowl(IsLight(cell));
                 }
             }
             Shake();
@@ -246,7 +253,7 @@ namespace UyuyanKopekler.Game
                 bark.transform.localPosition = at + new Vector3(0f, 0.55f + t * 0.8f, 0f);
                 float s = Mathf.LerpUnclamped(0.6f, 1f, Tween.OutBack(Mathf.Clamp01(t * 3f)));
                 bark.transform.localScale = new Vector3(s, s, 1f);
-                bark.color = Palette.WithAlpha(Palette.Cream, 1f - t * t);
+                bark.color = Palette.WithAlpha(Palette.CoralDark, 1f - t * t);
             });
             bark.gameObject.SetActive(false);
         }

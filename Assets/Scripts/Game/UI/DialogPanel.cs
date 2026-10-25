@@ -6,19 +6,26 @@ using UyuyanKopekler.Art;
 namespace UyuyanKopekler.UI
 {
     // Ekranın üstüne açılan tek pencere: arka planı karartır, kart "pop" yaparak gelir.
-    // Mola, sonuç, bölüm girişi ve onay pencerelerinin hepsi bunu kullanır.
+    // Kartın tepesinden bir köpek çizimi taşar. Mola, sonuç, bölüm girişi ve onay
+    // pencerelerinin hepsi bunu kullanır.
     public sealed class DialogPanel : MonoBehaviour
     {
-        const float CardWidth = 880f;
-        const float OpenSeconds = 0.28f;
+        const float CardWidth = 860f;
+        const float IconSize = 360f;
+        const float IconOverlap = 290f; // çizimin tepesi kartın üst kenarından bu kadar yukarıda: köpek kartın üstüne oturur
+        const float OpenSeconds = 0.32f;
         const float CloseSeconds = 0.14f;
 
         CanvasGroup group;
-        RectTransform card;
+        RectTransform cardRoot;
+        RectOffset paddingWithIcon;
+        RectOffset paddingWithoutIcon;
+        VerticalLayoutGroup layout;
         Image icon;
         Text title;
         Text body;
         Button primary;
+        Card primaryCard;
         Text primaryLabel;
         Button secondary;
         Text secondaryLabel;
@@ -37,35 +44,42 @@ namespace UyuyanKopekler.UI
             backdrop.raycastTarget = true; // arkadaki düğmelere dokunulmasın
             UiFactory.Stretch(backdrop.rectTransform);
 
-            card = ui.Panel(transform, "Kart", Palette.Cream).rectTransform;
-            UiFactory.Place(card, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(CardWidth, 0f));
-            var layout = card.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(60, 60, 50, 60);
-            layout.spacing = 24f;
+            var card = ui.Card(transform, "Kart", Palette.Cream, 14f);
+            cardRoot = card.Root;
+            UiFactory.Place(cardRoot, new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(CardWidth, 0f));
+            card.Shadow.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            card.Body.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
+            paddingWithIcon = new RectOffset(64, 64, (int)(IconSize - IconOverlap) + 40, 64);
+            paddingWithoutIcon = new RectOffset(64, 64, 60, 64);
+            layout = cardRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = paddingWithIcon;
+            layout.spacing = 22f;
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
-            card.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            cardRoot.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            icon = ui.Picture(card, "İkon", null, Color.white);
-            SetHeight(icon.gameObject, 230f);
+            // Kartın tepesinden taşan çizim (düzenin dışında)
+            icon = ui.Picture(cardRoot, "Çizim", null, Color.white);
+            icon.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            UiFactory.Place(icon.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, IconOverlap), new Vector2(IconSize, IconSize));
 
-            title = ui.Label(card, "Başlık", "", 70, Palette.Ink);
-            body = ui.Label(card, "Metin", "", 40, Palette.InkSoft);
-            body.lineSpacing = 1.15f;
-            SetHeight(UiFactory.CreateRect("Boşluk", card).gameObject, 6f);
+            title = ui.Label(cardRoot, "Başlık", "", 72, Palette.Ink, TextAnchor.MiddleCenter, display: true);
+            body = ui.Label(cardRoot, "Metin", "", 38, Palette.InkSoft);
+            body.lineSpacing = 1.1f;
+            SetHeight(UiFactory.CreateRect("Boşluk", cardRoot).gameObject, 10f);
 
-            primary = ui.TextButton(card, "Birincil", "", Palette.Green, 56);
+            primary = ui.TextButton(cardRoot, "Birincil", "", Palette.Mint, out primaryCard, 56);
             primaryLabel = primary.GetComponentInChildren<Text>();
-            SetHeight(primary.gameObject, 150f);
+            SetHeight(primary.gameObject, 146f);
             primary.onClick.AddListener(() => Choose(content?.OnPrimary));
 
-            secondary = ui.TextButton(card, "İkincil", "", Palette.CreamDark, 48);
+            secondary = ui.TextButton(cardRoot, "İkincil", "", Palette.Paper, 46);
             secondaryLabel = secondary.GetComponentInChildren<Text>();
-            secondaryLabel.color = Palette.Ink;
-            SetHeight(secondary.gameObject, 120f);
+            SetHeight(secondary.gameObject, 116f);
             secondary.onClick.AddListener(() => Choose(content?.OnSecondary));
 
             gameObject.SetActive(false);
@@ -74,15 +88,16 @@ namespace UyuyanKopekler.UI
         public void Show(DialogContent dialog)
         {
             content = dialog;
-            icon.gameObject.SetActive(dialog.Icon != null);
+            bool hasIcon = dialog.Icon != null;
+            icon.gameObject.SetActive(hasIcon);
             icon.sprite = dialog.Icon;
+            layout.padding = hasIcon ? paddingWithIcon : paddingWithoutIcon;
             title.text = dialog.Title;
             body.gameObject.SetActive(!string.IsNullOrEmpty(dialog.Body));
             body.text = dialog.Body;
 
             primaryLabel.text = dialog.PrimaryLabel;
-            primary.image.color = dialog.PrimaryColor;
-            primary.GetComponent<Shadow>().effectColor = Palette.Darker(dialog.PrimaryColor, 0.3f);
+            primaryCard.SetColor(dialog.PrimaryColor);
             secondary.gameObject.SetActive(!string.IsNullOrEmpty(dialog.SecondaryLabel));
             secondaryLabel.text = dialog.SecondaryLabel;
 
@@ -92,9 +107,12 @@ namespace UyuyanKopekler.UI
             group.blocksRaycasts = true;
             Animate(OpenSeconds, t =>
             {
-                group.alpha = Mathf.Clamp01(t * 2f);
-                float s = Mathf.LerpUnclamped(0.85f, 1f, Tween.OutBack(t));
-                card.localScale = new Vector3(s, s, 1f);
+                group.alpha = Mathf.Clamp01(t * 2.5f);
+                float s = Mathf.LerpUnclamped(0.8f, 1f, Tween.OutBack(t));
+                cardRoot.localScale = new Vector3(s, s, 1f);
+                // çizim kartla birlikte gelir, biraz da zıplar
+                float hop = Tween.Bump(Mathf.Clamp01(t * 1.3f)) * 30f;
+                icon.rectTransform.anchoredPosition = new Vector2(0f, IconOverlap + hop);
             });
         }
 
@@ -131,12 +149,11 @@ namespace UyuyanKopekler.UI
             running = StartCoroutine(Tween.Run(seconds, step));
         }
 
-        static GameObject SetHeight(GameObject go, float height)
+        static void SetHeight(GameObject go, float height)
         {
             var element = go.AddComponent<LayoutElement>();
             element.preferredHeight = height;
             element.minHeight = height;
-            return go;
         }
     }
 }

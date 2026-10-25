@@ -7,15 +7,14 @@ using UyuyanKopekler.Art;
 
 namespace UyuyanKopekler.UI
 {
-    // Oyun sırasındaki arayüz: üst bar (mola, başlık, mod bilgisi, kalpler, kalan köpek)
-    // ve altta ipucu balonu. Ortası boş kalır; bahçe dünyada çizilir.
+    // Oyun sırasındaki arayüz (arka planı saydam; bahçe ve kâğıt zemin dünyada çizilir):
+    // solda mola, ortada başlık ve mod bilgisi, sağda kalpler ve kalan köpek, altta ipucu balonu.
     public sealed class GameScreen : UiScreen
     {
-        const float BarHeight = 250f;
-        const float BarTop = 16f;
-        const float BoardGap = 28f;
+        const float HudHeight = 230f;
+        const float BoardGap = 26f;
         const float BottomReserve = 150f;
-        const float HeartSize = 66f;
+        const float HeartSize = 70f;
 
         Text title;
         Text status;
@@ -35,7 +34,7 @@ namespace UyuyanKopekler.UI
             {
                 float scale = rootCanvas != null ? rootCanvas.scaleFactor : 1f;
                 var safeArea = Screen.safeArea;
-                float top = Screen.height - safeArea.yMax + (BarTop + BarHeight + BoardGap) * scale;
+                float top = Screen.height - safeArea.yMax + (HudHeight + BoardGap) * scale;
                 float bottom = safeArea.yMin + BottomReserve * scale;
                 return new Vector2(top, bottom);
             }
@@ -63,7 +62,7 @@ namespace UyuyanKopekler.UI
                 hearts[i].sprite = i < current ? Ui.Art.Heart : Ui.Art.HeartEmpty;
             }
 
-            // Yeni giden kalp küçük bir sarsıntıyla griye döner.
+            // Yeni giden kalp küçük bir sarsıntıyla solar.
             if (shownHearts > current && isActiveAndEnabled)
                 for (int i = current; i < Math.Min(shownHearts, hearts.Count); i++)
                     StartCoroutine(LoseHeart(hearts[i].rectTransform));
@@ -77,48 +76,49 @@ namespace UyuyanKopekler.UI
         {
             rootCanvas = GetComponentInParent<Canvas>().rootCanvas;
 
-            var bar = Ui.Panel(safe, "Üst bar", Palette.Cream).rectTransform;
-            UiFactory.TopStrip(bar, BarHeight, 24f, BarTop);
-
-            var pause = Ui.IconButton(bar, "Mola", Ui.Art.IconPause, Palette.Orange, Color.white, 0.5f);
-            UiFactory.Place((RectTransform)pause.transform, new Vector2(0f, 0.5f), new Vector2(100f, 0f), new Vector2(130f, 130f));
+            var pause = Ui.IconButton(safe, "Mola", Ui.Art.IconPause, Palette.Cream, Palette.Ink, 0.46f);
+            UiFactory.Place((RectTransform)pause.transform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(34f, -34f), new Vector2(120f, 120f));
             pause.onClick.AddListener(() => PausePressed?.Invoke());
 
-            title = Ui.Label(bar, "Başlık", "", 62, Palette.Ink);
-            UiFactory.Place(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-10f, -30f), new Vector2(500f, 84f));
+            title = Ui.Label(safe, "Başlık", "", 66, Palette.Ink, TextAnchor.MiddleCenter, display: true);
+            UiFactory.Place(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-20f, -30f), new Vector2(520f, 90f));
 
-            status = Ui.Label(bar, "Durum", "", 40, Palette.InkSoft);
+            var pill = Ui.Card(safe, "Durum", Palette.MustardLight, 6f, circle: false, cornerScale: 1.5f);
+            UiFactory.Place(pill.Root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(-20f, -128f), new Vector2(480f, 76f));
+            status = Ui.Label(pill.Body, "Yazı", "", 34, Palette.Ink);
             status.resizeTextForBestFit = true;
-            status.resizeTextMinSize = 24;
-            status.resizeTextMaxSize = 40;
+            status.resizeTextMinSize = 22;
+            status.resizeTextMaxSize = 34;
             status.verticalOverflow = VerticalWrapMode.Truncate;
-            UiFactory.Place(status.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-10f, 34f), new Vector2(500f, 110f));
+            UiFactory.Stretch(status.rectTransform, 18f, 4f, 18f, 4f);
 
-            heartsRow = UiFactory.CreateRect("Kalpler", bar);
-            UiFactory.Place(heartsRow, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-36f, -34f), new Vector2(240f, HeartSize));
+            heartsRow = UiFactory.CreateRect("Kalpler", safe);
+            UiFactory.Place(heartsRow, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-30f, -34f), new Vector2(240f, HeartSize));
             var row = heartsRow.gameObject.AddComponent<HorizontalLayoutGroup>();
             row.childAlignment = TextAnchor.MiddleRight;
-            row.spacing = 6f;
+            row.spacing = 2f;
             row.childControlWidth = true;
             row.childControlHeight = true;
             row.childForceExpandWidth = false;
             row.childForceExpandHeight = false;
 
-            var dogIcon = Ui.Picture(bar, "Köpek ikonu", Ui.Art.DogSleeping, Color.white);
-            UiFactory.Place(dogIcon.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-150f, 30f), new Vector2(90f, 90f));
-            dogsLeft = Ui.Label(bar, "Kalan köpek", "", 48, Palette.Ink, TextAnchor.MiddleLeft);
-            UiFactory.Place(dogsLeft.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-28f, 30f), new Vector2(122f, 90f));
+            var chip = Ui.Card(safe, "Kalan köpek", Palette.Cream, 6f, circle: false, cornerScale: 1.5f);
+            UiFactory.Place(chip.Root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-34f, -124f), new Vector2(226f, 80f));
+            var dogIcon = Ui.Picture(chip.Body, "Köpek", Ui.Art.CurledDog(0), Color.white);
+            UiFactory.Place(dogIcon.rectTransform, new Vector2(0f, 0.5f), new Vector2(60f, 4f), new Vector2(96f, 96f));
+            dogsLeft = Ui.Label(chip.Body, "Sayı", "", 40, Palette.Ink, TextAnchor.MiddleLeft, display: true);
+            UiFactory.Place(dogsLeft.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-12f, 0f), new Vector2(92f, 70f));
 
-            hint = HintToast.Create(Ui, safe, 960f);
+            hint = HintToast.Create(Ui, safe, 940f);
         }
 
         IEnumerator LoseHeart(RectTransform heart)
         {
-            yield return Tween.Run(0.45f, t =>
+            yield return Tween.Run(0.5f, t =>
             {
-                float s = 1f + Tween.Bump(t) * 0.45f;
+                float s = 1f + Tween.Bump(t) * 0.5f;
                 heart.localScale = new Vector3(s, s, 1f);
-                heart.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * Mathf.PI * 4f) * 14f * (1f - t));
+                heart.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * Mathf.PI * 4f) * 16f * (1f - t));
             });
         }
     }

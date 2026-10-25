@@ -8,6 +8,7 @@ namespace UyuyanKopekler.Game
 {
     // Bahçedeki tek bir karenin görüntüsü: zemin (çim/toprak), ikon (mama kabı/köpek),
     // işaret (yanlış kap çarpısı) ve rakam. Kendi küçük animasyonlarını oynatır.
+    // Her kare konumuna göre sabit bir "görünüm" seçer: çim deseni ve altındaki köpeğin kürkü.
     public sealed class TileView : MonoBehaviour
     {
         public const int BaseOrder = 0;
@@ -15,8 +16,9 @@ namespace UyuyanKopekler.Game
         public const int MarkOrder = 2;
         public const int LabelOrder = 3;
 
-        const float BowlScale = 0.84f;
-        const float DogScale = 1.0f;
+        const float BowlScale = 0.8f;
+        const float AwakeDogScale = 1.22f; // komşu karelere biraz taşar: yerinden fırlamış gibi
+        const float SleepingDogScale = 1.12f;
         const float PressedScale = 0.92f;
 
         IGameArt art;
@@ -31,6 +33,7 @@ namespace UyuyanKopekler.Game
         float motionScale = 1f;
         float pressScale = 1f;
         Color groundColor;
+        int look; // bu karenin sabit görünüm numarası
 
         public Cell Cell { get; private set; }
 
@@ -51,14 +54,14 @@ namespace UyuyanKopekler.Game
             labelGo.transform.SetParent(tile.body, false);
             labelGo.transform.localPosition = new Vector3(0f, -0.02f, 0f);
             tile.label = labelGo.AddComponent<TextMesh>();
-            tile.label.font = art.Font;
-            tile.label.fontSize = 64;
+            tile.label.font = art.DisplayFont;
+            tile.label.fontSize = 72;
             tile.label.characterSize = 0.1f;
             tile.label.anchor = TextAnchor.MiddleCenter;
             tile.label.alignment = TextAlignment.Center;
-            tile.label.fontStyle = FontStyle.Bold;
+            tile.label.fontStyle = FontStyle.Normal;
             var labelRenderer = labelGo.GetComponent<MeshRenderer>();
-            labelRenderer.sharedMaterial = art.Font.material;
+            labelRenderer.sharedMaterial = art.DisplayFont.material;
             labelRenderer.sortingOrder = LabelOrder;
             return tile;
         }
@@ -75,6 +78,7 @@ namespace UyuyanKopekler.Game
         public void Place(Cell cell, Vector3 localPosition)
         {
             Cell = cell;
+            look = ((cell.X * 73856093) ^ (cell.Y * 19349663)) & 0x7fffffff;
             name = $"Kare {cell.X},{cell.Y}";
             transform.localPosition = localPosition;
             StopMotion();
@@ -85,36 +89,49 @@ namespace UyuyanKopekler.Game
 
         // ---------- Görünüm durumları ----------
 
-        public void ShowGrass(bool alternate, bool bowl)
+        int Coat => look % art.DogCoatCount;
+
+        // light: dama tahtası için açık ton.
+        public void ShowGrass(bool light, bool bowl)
         {
-            SetGround(art.TileGrass, alternate ? Palette.GrassB : Palette.GrassA);
+            SetGround(art.GrassTile(look / 7, light), Color.white);
             SetIcon(bowl ? art.Bowl : null, BowlScale, Color.white);
             SetMark(null);
             label.text = "";
         }
 
-        public void ShowSoil(bool alternate, int nearbyDogs)
+        public void ShowSoil(int nearbyDogs)
         {
-            SetGround(art.TileSoil, alternate ? Palette.SoilB : Palette.SoilA);
+            SetGround(art.SoilTile(look / 5), Color.white);
             SetIcon(null, 1f, Color.white);
             SetMark(null);
             label.text = nearbyDogs > 0 ? nearbyDogs.ToString() : "";
             label.color = Palette.Numbers[Mathf.Clamp(nearbyDogs, 0, Palette.Numbers.Length - 1)];
         }
 
-        public void ShowWokenDog()
+        // Kazılınca uyanan (ya da kaybedince hep birlikte uyanan) köpek: ayakta, havlıyor.
+        public void ShowAwakeDog()
         {
-            SetGround(art.TileSoil, Palette.WokenSoil);
-            SetIcon(art.DogAwake, DogScale, Color.white);
+            SetGround(art.SoilTile(look / 5), Palette.WokenSoil);
+            SetIcon(art.AwakeDog(Coat), AwakeDogScale, Color.white);
+            SetMark(null);
+            label.text = "";
+        }
+
+        // Kazanınca: hiç uyanmayan köpekler kıvrılıp uyurken görünür.
+        public void ShowSleepingDog()
+        {
+            SetGround(art.SoilTile(look / 5), Color.white);
+            SetIcon(art.CurledDog(Coat), SleepingDogScale, Color.white);
             SetMark(null);
             label.text = "";
         }
 
         // Kaybedince: köpek olmayan yere konmuş mama kabı.
-        public void ShowWrongBowl()
+        public void ShowWrongBowl(bool light)
         {
-            SetGround(art.TileGrass, Palette.WrongBowl);
-            SetIcon(art.Bowl, BowlScale, Palette.WithAlpha(Color.white, 0.45f));
+            SetGround(art.GrassTile(look / 7, light), Palette.WrongBowl);
+            SetIcon(art.Bowl, BowlScale, Palette.WithAlpha(Color.white, 0.5f));
             SetMark(art.IconCross);
             label.text = "";
         }
@@ -122,7 +139,7 @@ namespace UyuyanKopekler.Game
         public void SetPressed(bool pressed)
         {
             pressScale = pressed ? PressedScale : 1f;
-            ground.color = pressed ? Color.Lerp(groundColor, Color.white, 0.25f) : groundColor;
+            ground.color = pressed ? groundColor * Palette.Pressed : groundColor;
             ApplyScale();
         }
 
@@ -217,7 +234,8 @@ namespace UyuyanKopekler.Game
         void SetMark(Sprite sprite)
         {
             mark.sprite = sprite;
-            mark.transform.localScale = new Vector3(0.7f, 0.7f, 1f);
+            mark.color = Palette.CoralDark;
+            mark.transform.localScale = new Vector3(0.62f, 0.62f, 1f);
         }
 
         void ApplyScale()

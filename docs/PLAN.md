@@ -26,10 +26,7 @@ Her bölüm editörde test edilebilir küçük adımlar halinde uygulanır.
 - Oyun ekranı: üst bar (mola, başlık, mod bilgisi, kalpler, kalan köpek), alt ipucu balonu.
 - Diyalog (tek bileşen): mola, sonuç, bölüm girişi, "ilerlemeyi sıfırla" onayı.
 - Ayarlar (titreşim, ses, ilerlemeyi sıfırla) ve Koleksiyon (iskelet) ekranları.
-- **Tasarımlar:** tüm görseller kodla çiziliyor (`ArtPainter`, `IGameArt` arayüzünün arkasında). Hazır çizim yok; 6. adımda gerçek
-  çizimler aynı yerden takılacak. Kareler yuvarlatılmış, çim dokulu; mama kabı, uyuyan/uyanık
-  köpek yüzü, kalp, kemik, yıldız, inci, tasma, pati, dişli, kilit gibi ikonlar var.
-- Tasarım maketleri: `docs/tasarim/ekranlar.png` ve `docs/tasarim/ikonlar.png` (Unity dışında, aynı ölçülerle çizilmiş yaklaşık görüntü).
+- **Tasarımlar:** ikinci turda baştan yapıldı; ayrıntılar `docs/TASARIM.md`. Maketler: `docs/tasarim/ekranlar.png`, `docs/tasarim/kopekler.png`.
 - **Animasyonlar:** açılan kareler dalga halinde "pop" yapıyor, köpek uyanınca zıplıyor + tahta
   sarsılıyor, mama kabı pop, düğmeler basınca küçülüyor, ekranlar yumuşak geçiyor,
   menüdeki köpek nefes alıyor.
@@ -51,8 +48,9 @@ Assets/Scripts/
     App/         GameBootstrap (sahnedeki tek bileşen), AppController, PlayerPrefsSaveStore,
                  Haptics, BackButton
     Board/       BoardView, TileView, BoardInput, BoardCamera, RoundController
-    Art/         IGameArt, ProceduralArt, ArtPainter, PixelCanvas, Sdf, Palette
-    UI/          UiRoot, UiFactory, UiScreen, SafeAreaFitter, ButtonFeedback, PillToggle,
+    Art/         IGameArt, IllustratedArt, Palette
+    (görseller tools/art/ betikleriyle üretilir → Assets/Resources/Art, yazı tipi → Assets/Resources/Fonts)
+    UI/          UiRoot, UiFactory, Card, UiScreen, SafeAreaFitter, ButtonFeedback, PillToggle,
                  Tween, DialogPanel, DialogContent, HintToast
     UI/Screens/  MainMenuScreen, AdventureMapScreen, GameScreen, SettingsScreen, CollectionScreen
 Assets/Tests/EditMode/  → Core için NUnit testleri                [UyuyanKopekler.Tests.asmdef]
@@ -102,7 +100,8 @@ BoardInput (Pointer) ──CellTapped──▶ RoundController ──Dig──�
 | 3 | Kombo | `ComboTracker` (Core): açılan alan büyüklüğüne göre çarpan; `RevealedCell.Depth` zaten dalga için hazır |
 | 4 | Macera hedefleri | `CollectStarsGoal`, `FindGoldenBoneGoal` (`IRoundGoal`); `LevelCatalog` büyür |
 | 5 | Günlük görevler | `IQuest` + `QuestTracker`, `RoundOutcome`'dan beslenir |
-| 6 | Gerçek çizimler, ses | `IGameArt`'ın içe aktarılan çizimlerle yeni bir uygulaması (`ProceduralArt` yerine); `IAudio` servisi |
+| — | Animasyonlar | Köpek çizimleri parçalara (gövde/kafa/kuyruk) ayrılır; `tools/art/dogs.py` katman katman üretir |
+| 6 | Ses, mod temaları | `IAudio` servisi; Park/Çiftlik için `tools/art`'a yeni palet ve sahneler |
 | 7 | Kayıt/Reklam/Analitik | `ISaveStore` bulut kaydı; `IAdService` (geçiş reklamı kuralları); `IAnalytics` |
 
 ---

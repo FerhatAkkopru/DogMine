@@ -64,15 +64,23 @@ namespace UyuyanKopekler.Game
             FitBackdrop();
         }
 
-        // Çimen arka planı kameranın gördüğü alanı tamamen kaplasın.
+        // Kâğıt zemin kameranın gördüğü alanı tamamen kaplasın.
         void FitBackdrop()
         {
             if (backdrop == null || backdrop.sprite == null) return;
-            float viewHeight = viewCamera.orthographicSize * 2f;
+            float viewHeight = viewCamera.orthographicSize * 2f * 1.02f;
             float viewWidth = viewHeight * viewCamera.aspect;
-            var spriteSize = backdrop.sprite.bounds.size;
             backdrop.transform.position = new Vector3(transform.position.x, transform.position.y, 0f);
-            backdrop.transform.localScale = new Vector3(viewWidth / spriteSize.x * 1.02f, viewHeight / spriteSize.y * 1.02f, 1f);
+            if (backdrop.drawMode == SpriteDrawMode.Simple)
+            {
+                var spriteSize = backdrop.sprite.bounds.size;
+                backdrop.transform.localScale = new Vector3(viewWidth / spriteSize.x, viewHeight / spriteSize.y, 1f);
+            }
+            else
+            {
+                backdrop.transform.localScale = Vector3.one;
+                backdrop.size = new Vector2(viewWidth, viewHeight); // döşenir, gerilmez
+            }
         }
     }
 }

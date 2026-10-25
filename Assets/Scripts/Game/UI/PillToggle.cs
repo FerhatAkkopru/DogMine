@@ -5,13 +5,15 @@ using UyuyanKopekler.Art;
 
 namespace UyuyanKopekler.UI
 {
-    // Açık/kapalı anahtarı: yeşil (açık) / gri (kapalı) hap içinde kayan beyaz topuz.
+    // Açık/kapalı anahtarı: mürekkep konturlu hap, içinde kayan yuvarlak topuz.
+    // Açıkken nane yeşili, kapalıyken kâğıt rengi.
     public sealed class PillToggle : MonoBehaviour
     {
+        const float KnobSize = 66f;
         const float KnobInset = 8f;
-        const float SlideSpeed = 14f;
+        const float SlideSpeed = 12f;
 
-        Image track;
+        Card track;
         RectTransform knob;
         float knobPosition; // 0 = solda (kapalı), 1 = sağda (açık)
 
@@ -20,20 +22,20 @@ namespace UyuyanKopekler.UI
 
         public static PillToggle Create(UiFactory ui, Transform parent, string name)
         {
-            var track = ui.RoundedBox(parent, name, Palette.Grey, 1.4f);
-            track.raycastTarget = true;
+            var track = ui.Card(parent, name, Palette.PaperDark, 6f, circle: false, cornerScale: 1.25f);
+            track.Face.raycastTarget = true;
 
-            var toggle = track.gameObject.AddComponent<PillToggle>();
+            var toggle = track.Root.gameObject.AddComponent<PillToggle>();
             toggle.track = track;
 
-            var knobImage = ui.Picture(track.transform, "Topuz", ui.Art.Circle, Color.white);
-            UiFactory.AddShadow(knobImage, Palette.Shadow, new Vector2(0f, -4f));
-            toggle.knob = knobImage.rectTransform;
-            toggle.knob.sizeDelta = new Vector2(64f, 64f);
+            var knobCard = ui.Card(track.Body, "Topuz", Palette.White, 4f, circle: true);
+            toggle.knob = knobCard.Root;
+            toggle.knob.sizeDelta = new Vector2(KnobSize, KnobSize);
 
-            var button = track.gameObject.AddComponent<Button>();
+            var button = track.Root.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
+            button.targetGraphic = track.Face;
             button.onClick.AddListener(toggle.Flip);
 
             toggle.Render(0f);
@@ -43,7 +45,7 @@ namespace UyuyanKopekler.UI
         public void SetValue(bool value, bool notify)
         {
             Value = value;
-            track.color = value ? Palette.Green : Palette.Grey;
+            track.SetColor(value ? Palette.Mint : Palette.PaperDark);
             if (notify) Changed?.Invoke(value);
         }
 
@@ -66,7 +68,7 @@ namespace UyuyanKopekler.UI
             knob.anchorMin = anchor;
             knob.anchorMax = anchor;
             knob.pivot = anchor;
-            knob.anchoredPosition = new Vector2(Mathf.Lerp(KnobInset, -KnobInset, position), 0f);
+            knob.anchoredPosition = new Vector2(Mathf.Lerp(KnobInset, -KnobInset, position), 2f);
         }
     }
 }

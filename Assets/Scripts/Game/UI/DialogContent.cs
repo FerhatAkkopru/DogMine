@@ -12,7 +12,7 @@ namespace UyuyanKopekler.UI
         public string Body { get; set; }
 
         public string PrimaryLabel { get; set; }
-        public Color PrimaryColor { get; set; } = Palette.Green;
+        public Color PrimaryColor { get; set; } = Palette.Mint;
         public Action OnPrimary { get; set; }
 
         // Boş bırakılırsa ikinci düğme gizlenir.
