@@ -61,28 +61,44 @@ Altı kürk var. Her kürkün kulağı sabittir, böylece aynı renk köpek her 
 | Nane | Dik | Pembe tüylü |
 | Krem | Dik | Hardal lekeli |
 
-Pozlar:
-- **Uyuyan:** başı ön patilerinde (`sleep_*`)
-- **Kıvrılmış:** simit gibi, burnu kuyruğunda (`curl_*`)
-- **Uyanık:** dört ayak üstünde, havlıyor (`awake_*`)
+Her köpek bir **kukla** (`tools/art/rig.py`): gövde, kafa, kulak, kuyruk ve dört bacak ayrı ayrı çizilir, poz da eklem açılarıyla tarif edilir. Irklar yalnızca renk değil, biçim olarak da ayrışır (bacak boyu, kulak tipi, kuyruk tipi, tüylülük). Her kürk için tek bir **kare sayfası** üretilir (`Dogs/dog_<kürk>.png`, 320 px kareler, 5 sütun):
 
-Bahçede her kare, konumuna göre sabit bir kürk seçer. Kazanınca uyanmayan köpekler kıvrılmış uyurken görünür; kaybedince hepsi uyanıp havlar.
+| Grup | Kareler | Nerede |
+|---|---|---|
+| Yandan | `Stand`, `Alert`, `Bark`, `Wag0–1`, `Run0–3` | Bahçede uyanan köpek, kediye havlama, kaybedince kaçış |
+| Kıvrılmış | `Sleep0–1` (nefes), `SleepTwitch` (kulak kıpırdar), `Wake` (göz açık) | Kazanınca uyuyanlar, açılış ekranı, mola penceresi |
+| Önden | `Sit0–2` (kuyruk sallar), `Blink`, `Happy`, `Gasp` | Harita rehberi, bölüm girişi, kazanma ve onay pencereleri |
+
+Kedi (siyah, mercan tasmalı) aynı yöntemle çizilir: `Walk0–3`, `Startle`, `Run0–3`, `Sit0–1` (`Dogs/cat.png`, 4 sütun).
+
+Yan görünüm kareleri sağa bakar; sola bakmak için aynalanır. Bahçede her kare, konumuna göre sabit bir kürk ve yön seçer, böylece köpekler iki yöne de bakar.
+
+## 5.1 İpucu: pati izleri
+
+Açık karelerde rakam yerine **o kadar pati izi** çizilir (`Board/hint_1..8`): zar yüzü gibi dizilir, her sayının kendi rengi vardır (1 lacivert-mavi, 2 yeşil, 3 mercan, 4 mor...). Ayarlardan kapatılırsa eski rakamlar gelir.
 
 ## 6. Bileşenler
 
 - **Kart** (`UiFactory.Card`): sert gölge + renkli yüz + mürekkep kontur. İçerik `Body`'ye eklenir.
 - **Düğme:** Kart + yazı/ikon. Basılınca yüz gölgenin üstüne çöker (`ButtonFeedback`).
 - **Üst bar:** Solda yuvarlak geri düğmesi, ortada başlık ve altında hardal fırça darbesi.
-- **Diyalog:** Krem kart; tepesinde bir köpek çizimi oturur (kazanınca kıvrılmış, kaybedince havlayan).
-- **İpucu balonu:** Altta lacivert kart, krem yazı.
-- **Harita:** Noktalı mürekkep patika. Bölüm daireleri renk koduyla ayrılır: bitti = nane + tik, sıradaki = mercan + yanında uyuyan köpek, kilitli = kâğıt koyu + kilit. Hedef yazısı kâğıt etiketin üstündedir.
+- **Diyalog:** Krem kart; tepesinde oynayan bir köpek oturur (kazanınca sevinçli, kaybedince havlayan, molada uyuyan, bölüm girişinde kuyruk sallayan, sıfırlamada şaşkın).
+- **İpucu balonu:** Alt barın üstünde lacivert kart, krem yazı.
+- **Alt bar (oyun):** Solda nane yeşili **kedi düğmesi** (kedi yüzü + "Kedi" + kemik fiyatı; seçimdeyken mercan olur, nabız gibi atar, "Kare seç" yazar), sağda krem **kemik sayacı**.
+- **Harita:** Noktalı mürekkep patika. Bölüm daireleri renk koduyla ayrılır: bitti = nane + tik, sıradaki = mercan + yanında kuyruk sallayan köpek, kilitli = kâğıt koyu + kilit. Hedef yazısı kâğıt etiketin üstündedir.
 
-## 7. Hareket ilkeleri (sonraki oturumda genişletilecek)
+## 7. Hareket ilkeleri
 
-- Her şey "canlı ama sakin" olmalı. Köpekler uyurken yalnızca nefes alır (y ekseninde %2–3 şişme), ara sıra "z" çıkar.
-- Dokunuşlar hemen karşılık bulur: düğme çöker, kare basılınca hafifçe iner, açılan kareler dalga halinde "pop" yapar.
-- Kötü olaylar kısa ve net: sarsıntı, "Hav!", kalp sallanıp solar.
-- Planlanan: kuyruk sallama, kulak kıpırdatma, uyanınca zıplayıp yer değiştirme. Çizimler bu yüzden ileride parçalara (gövde, kafa, kuyruk) ayrılacak.
+- Her şey "canlı ama sakin" olmalı. Uyuyan köpekler kare kare nefes alır, arada kulak kıpırdatır, "z" çıkar. Hareketler gerçek kare animasyonudur (`SpriteAnimator` + `Clips`), çizimi esnetmek yerine.
+- Dokunuşlar hemen karşılık bulur: düğme çöker (ve "tık" sesi), kare basılınca hafifçe iner, açılan kareler dalga halinde "pop" yapar.
+- Kötü olaylar kısa ve net: köpek gözünü açar, kalkar, havlar (`Wake` klibi), sarsıntı, "Hav!", kalp sallanıp solar.
+- **Kaybedince:** bütün köpekler toz bulutu bırakarak bahçenin ortasından dört bir yana koşarak kaçar.
+- **Kedi sahnesi:** kedi kenardan yürüyerek gelir, kareye oturup miyavlar; çevredeki köpekler kalkıp ona havlar, kedi irkilip koşarak kaçar, köpeklerin üstüne mama kabı konur.
+- **Eşyalar:** kareden fırlayıp kavis çizerek kemik sayacına uçar; nadir eşyalar ekranın ortasında büyüyüp kaybolur.
+
+## 7.1 Sesler
+
+Kısa, yumuşak, "kâğıt ve ahşap" hissi veren sesler (`Assets/Resources/Audio`). Arayüz sesleri CC0 lisanslı uisfx paketinden seçilir; havlama ve miyav `tools/audio/build.py` içinde sentezlenir. Aynı ses art arda çalınca perdesi hafifçe değişir. Ayarlardan kapatılabilir.
 
 ## 8. Çizimleri üretmek
 
@@ -95,8 +111,10 @@ python3 tools/art/build.py
 
 - `tools/art/sketch.py`: çizim kütüphanesi (yumuşak eğri, fırça çizgisi, kırpılmış doku)
 - `tools/art/style.py`: palet ve kürkler
-- `tools/art/dogs.py`: köpek pozları
+- `tools/art/rig.py`: köpek ve kedi kuklaları, pozlar, kare sayfaları, pati izleri, toz bulutu
 - `tools/art/props.py`: kareler, eşyalar, ikonlar, arayüz parçaları, köpek yatağı
 - Çıktı: `Assets/Resources/Art/**.png` (+ `.meta` içe aktarma ayarları), `Assets/Resources/Fonts/`
+
+Sesler: `python3 tools/audio/build.py --uisfx <uisfx paketinin klasörü>` (paket: `npm pack uisfx@0.4.0`) (`Assets/Resources/Audio`).
 
 PNG'ler elle düzenlenmez; değişiklik betikte yapılır ve yeniden üretilir. GUID'ler dosya yolundan türetildiği için yeniden üretmek Unity referanslarını bozmaz.

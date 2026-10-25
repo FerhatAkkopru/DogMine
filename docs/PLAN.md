@@ -5,7 +5,7 @@ Her bölüm editörde test edilebilir küçük adımlar halinde uygulanır.
 
 ---
 
-## 1. Bu turda yapılanlar (Adım 0 + Adım 1)
+## 1. Yapılanlar (Adım 0, 1 ve 2)
 
 ### Adım 0 — Temizlik ve hata düzeltmeleri
 | Sorun | Çözüm |
@@ -31,6 +31,24 @@ Her bölüm editörde test edilebilir küçük adımlar halinde uygulanır.
   sarsılıyor, mama kabı pop, düğmeler basınca küçülüyor, ekranlar yumuşak geçiyor,
   menüdeki köpek nefes alıyor.
 
+### Adım 2 — Kare animasyonları, pati izleri, eşyalar, kedi, sesler
+- **Köpekler kukla oldu** (`tools/art/rig.py`): 6 ırk biçim olarak da farklı (bacak, kulak, kuyruk, tüy).
+  Her kürk için 19 karelik sayfa: yandan duruş/havlama/kuyruk/koşu (4 kare), kıvrılmış uyku (nefes,
+  kulak kıpırdatma, uyanma), önden oturma (kuyruk sallama, göz kırpma, sevinç, şaşkınlık). Kedi 11 kare.
+- **Animasyon altyapısı:** `Anim/SpriteAnimator` (Image ya da SpriteRenderer üstünde kare oynatır),
+  `Anim/Clips` (hangi kareler, hangi hızda), `Anim/ClipLibrary` (sprite dizilerini önbellekler).
+- **Pati izleri:** açık karede rakam yerine o kadar pati izi; Ayarlar'dan rakama dönülebilir.
+- **Bahçede:** köpekler iki yöne bakar; uyanınca kalkıp havlar ve kuyruk sallar; kaybedince hepsi
+  toz bulutu bırakarak dört bir yana kaçar; kazanınca uyuyanlar kare kare nefes alır.
+- **Çimin altındaki eşyalar** (Core): kemik, yıldız, inci, altın tasma. Toplanınca kareden sayaca uçar.
+  Koleksiyon ekranı gerçek sayıları gösterir.
+- **Kedi yardımcısı:** alt bardaki düğme → kare seç → kedi gelir, oturur, miyavlar; 3×3 alandaki
+  köpekler kalkıp havlar, üstlerine mama kabı konur; kedinin oturduğu kare güvenliyse kazılır.
+- **Sesler:** `Audio/SoundService` (`ISoundPlayer`): kazı, büyük kazı, mama kabı, toplama, nadir eşya,
+  can kaybı, kazanma, kaybetme, kaçış, düğme, anahtar, pencere, kedi, havlama, miyav.
+- Açılış ekranında üç köpek kare kare uyuyor, yatağın yanında bir köpek kuyruk sallıyor; harita
+  rehberi ve pencerelerdeki köpekler de animasyonlu.
+
 ---
 
 ## 2. Mimari
@@ -38,18 +56,23 @@ Her bölüm editörde test edilebilir küçük adımlar halinde uygulanır.
 ```
 Assets/Scripts/
   Core/        → saf C# (Unity'ye bağımlı DEĞİL, birim testli)   [UyuyanKopekler.Core.asmdef]
-    Board/       Cell, BoardConfig, CellState, BoardModel, RevealResult, RevealedCell
+    Board/       Cell, BoardConfig, CellState, BoardModel, RevealResult, RevealedCell,
+                 ItemType, FoundItem, ItemScatter, CatResult
+    Helpers/     CatHelper (kedinin kemik bedeli)
     Session/     GameSession, IRoundState, MoveResult, MoveKind, RoundOutcome, RoundStatus, LossReason
     Goals/       IRoundGoal, GoalStatus, FinishGardenGoal, NoHeartLossGoal, MoveLimitGoal
     Modes/       IGameMode, RoundSetup, RoundReport, RoundAction, ClassicMode, ClassicDifficulty,
                  AdventureMode, LevelDefinition, LevelCatalog, LevelInfo, LevelState
-    Save/        ISaveStore, PlayerProgress, GameSettings, SaveKeys
+    Save/        ISaveStore, PlayerProgress, GameSettings, SaveKeys, Inventory
   Game/        → Unity tarafı                                     [UyuyanKopekler.Game.asmdef]
     App/         GameBootstrap (sahnedeki tek bileşen), AppController, PlayerPrefsSaveStore,
                  Haptics, BackButton
     Board/       BoardView, TileView, BoardInput, BoardCamera, RoundController
-    Art/         IGameArt, IllustratedArt, Palette
-    (görseller tools/art/ betikleriyle üretilir → Assets/Resources/Art, yazı tipi → Assets/Resources/Fonts)
+    Art/         IGameArt, IllustratedArt, Palette, DogFrame, CatFrame
+    Anim/        SpriteAnimator, Clips, ClipLibrary
+    Audio/       ISoundPlayer, SoundService, Sfx
+    (görseller tools/art/ betikleriyle üretilir → Assets/Resources/Art, yazı tipi → Assets/Resources/Fonts,
+     sesler tools/audio/build.py → Assets/Resources/Audio)
     UI/          UiRoot, UiFactory, Card, UiScreen, SafeAreaFitter, ButtonFeedback, PillToggle,
                  Tween, DialogPanel, DialogContent, HintToast
     UI/Screens/  MainMenuScreen, AdventureMapScreen, GameScreen, SettingsScreen, CollectionScreen
@@ -88,6 +111,13 @@ BoardInput (Pointer) ──CellTapped──▶ RoundController ──Dig──�
 - **Macera:** Bölümün hedefi tamamlanınca kazanılır; hedef imkânsızlaşınca (hamle bitti, can gitti)
   ya da canlar bitince kaybedilir. Bölüm bitince bir sonraki açılır.
 - **Hamle:** Bir kareyi kazmak ya da rakama dokunup çevreyi açmak 1 hamledir; mama kabı hamle sayılmaz.
+- **Eşyalar:** İlk kazıda köpekler yerleşince güvenli karelerin altına rastgele saklanır:
+  güvenli karelerin ~%8'i kadar kemik (en az 1), %60 olasılıkla 1 yıldız, %12 inci, %3 altın tasma.
+  Kare açılınca eşya toplanır ve hemen kaydedilir (bahçe yarıda bırakılsa da kalır).
+  Yeni oyuncu 30 kemikle başlar.
+- **Kedi:** 10 kemik. Yalnızca çimli kareye ve ilk kazıdan sonra gönderilebilir. O kare ve 8 komşusundaki
+  köpeklerin üstüne mama kabı konur (can gitmez); kare güvenliyse kazılır. 1 hamle sayılır.
+  Seçimden vazgeçmek için düğmeye yeniden bas ya da bir kareye basılı tut.
 
 ---
 
@@ -95,13 +125,12 @@ BoardInput (Pointer) ──CellTapped──▶ RoundController ──Dig──�
 
 | Adım | Ne eklenecek | Nereye |
 |---|---|---|
-| 2 | Kemik, yıldız toplama | `BoardModel`'e "çimin altındaki eşya" katmanı (`ItemType`), `RevealResult`'a toplananlar; `PlayerProgress`'e kemik sayısı |
-| 2 | Kedi yardımcısı | `IHelper` arayüzü + `CatHelper`; `BoardModel.RemoveDog(cell)` (komşu rakamlar 1 azalır); `BoardView`'da kovalama animasyonu |
+| ~~2~~ | ~~Eşyalar, kedi, sesler, kare animasyonları~~ | Bitti (yukarıda) |
+| 3 | Diğer yardımcılar | Burun (güvenli kare bulur), düdük (3×3 alanı 2 sn gösterir): `CatHelper` gibi Core'da bedel + `BoardModel`'de kural; `BoardView`'da sahne |
 | 3 | Kombo | `ComboTracker` (Core): açılan alan büyüklüğüne göre çarpan; `RevealedCell.Depth` zaten dalga için hazır |
 | 4 | Macera hedefleri | `CollectStarsGoal`, `FindGoldenBoneGoal` (`IRoundGoal`); `LevelCatalog` büyür |
 | 5 | Günlük görevler | `IQuest` + `QuestTracker`, `RoundOutcome`'dan beslenir |
-| — | Animasyonlar | Köpek çizimleri parçalara (gövde/kafa/kuyruk) ayrılır; `tools/art/dogs.py` katman katman üretir |
-| 6 | Ses, mod temaları | `IAudio` servisi; Park/Çiftlik için `tools/art`'a yeni palet ve sahneler |
+| 6 | Mod temaları | Park/Çiftlik için `tools/art`'a yeni palet, zemin ve ırklar (`rig.BREEDS`) |
 | 7 | Kayıt/Reklam/Analitik | `ISaveStore` bulut kaydı; `IAdService` (geçiş reklamı kuralları); `IAnalytics` |
 
 ---

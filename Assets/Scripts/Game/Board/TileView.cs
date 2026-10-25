@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
 using UyuyanKopekler.Core;
 using UyuyanKopekler.UI;
@@ -7,8 +8,9 @@ using UyuyanKopekler.UI;
 namespace UyuyanKopekler.Game
 {
     // Bahçedeki tek bir karenin görüntüsü: zemin (çim/toprak), ikon (mama kabı/köpek),
-    // işaret (yanlış kap çarpısı) ve rakam. Kendi küçük animasyonlarını oynatır.
-    // Her kare konumuna göre sabit bir "görünüm" seçer: çim deseni ve altındaki köpeğin kürkü.
+    // işaret (yanlış kap çarpısı) ve ipucu (pati izleri ya da rakam). Köpekler kare kare oynar.
+    // Her kare konumuna göre sabit bir "görünüm" seçer: çim deseni, altındaki köpeğin kürkü
+    // ve köpeğin hangi yöne baktığı.
     public sealed class TileView : MonoBehaviour
     {
         public const int BaseOrder = 0;
@@ -17,11 +19,15 @@ namespace UyuyanKopekler.Game
         public const int LabelOrder = 3;
 
         const float BowlScale = 0.8f;
-        const float AwakeDogScale = 1.22f; // komşu karelere biraz taşar: yerinden fırlamış gibi
-        const float SleepingDogScale = 1.12f;
+        const float AwakeDogScale = 1.3f; // komşu karelere biraz taşar: yerinden fırlamış gibi
+        const float SleepingDogScale = 1.2f;
+        const float HintScale = 0.84f;
         const float PressedScale = 0.92f;
 
         IGameArt art;
+        ClipLibrary clips;
+        SpriteAnimator dogAnimator;
+        SpriteRenderer hint;
         Transform body;
         SpriteRenderer ground;
         SpriteRenderer icon;
@@ -37,18 +43,27 @@ namespace UyuyanKopekler.Game
 
         public Cell Cell { get; private set; }
 
-        public static TileView Create(Transform parent, IGameArt art)
+        // Köpeğin kürkü ve baktığı yön (yan görünüm kareleri sağa bakar).
+        public int Coat => look % art.DogCoatCount;
+        public bool FacesLeft => (look / 3) % 2 == 0;
+
+        public static TileView Create(Transform parent, ClipLibrary clips)
         {
             var go = new GameObject("Kare");
             go.transform.SetParent(parent, false);
             var tile = go.AddComponent<TileView>();
-            tile.art = art;
+            tile.clips = clips;
+            tile.art = clips.Art;
+            var art = tile.art;
 
             tile.body = new GameObject("Gövde").transform;
             tile.body.SetParent(go.transform, false);
             tile.ground = AddRenderer(tile.body, "Zemin", BaseOrder);
             tile.icon = AddRenderer(tile.body, "İkon", IconOrder);
             tile.mark = AddRenderer(tile.body, "İşaret", MarkOrder);
+            tile.hint = AddRenderer(tile.body, "Pati izi", LabelOrder);
+            tile.hint.transform.localScale = new Vector3(HintScale, HintScale, 1f);
+            tile.dogAnimator = SpriteAnimator.For(tile.icon);
 
             var labelGo = new GameObject("Rakam");
             labelGo.transform.SetParent(tile.body, false);
@@ -89,42 +104,73 @@ namespace UyuyanKopekler.Game
 
         // ---------- Görünüm durumları ----------
 
-        int Coat => look % art.DogCoatCount;
-
         // light: dama tahtası için açık ton.
         public void ShowGrass(bool light, bool bowl)
         {
             SetGround(art.GrassTile(look / 7, light), Color.white);
             SetIcon(bowl ? art.Bowl : null, BowlScale, Color.white);
-            SetMark(null);
-            label.text = "";
+            ClearMarks();
         }
 
-        public void ShowSoil(int nearbyDogs)
+        // pawHints: rakam yerine o kadar pati izi göster.
+        public void ShowSoil(int nearbyDogs, bool pawHints)
         {
             SetGround(art.SoilTile(look / 5), Color.white);
             SetIcon(null, 1f, Color.white);
-            SetMark(null);
-            label.text = nearbyDogs > 0 ? nearbyDogs.ToString() : "";
-            label.color = Palette.Numbers[Mathf.Clamp(nearbyDogs, 0, Palette.Numbers.Length - 1)];
+            ClearMarks();
+            if (nearbyDogs <= 0) return;
+            if (pawHints)
+            {
+                hint.sprite = art.PawHint(nearbyDogs);
+            }
+            else
+            {
+                label.text = nearbyDogs.ToString();
+                label.color = Palette.Numbers[Mathf.Clamp(nearbyDogs, 0, Palette.Numbers.Length - 1)];
+            }
         }
 
-        // Kazılınca uyanan (ya da kaybedince hep birlikte uyanan) köpek: ayakta, havlıyor.
-        public void ShowAwakeDog()
+        // Uyanmış köpek: ayakta, kuyruk sallıyor. wakeUp ise önce uyanma animasyonu oynar.
+        public void ShowAwakeDog(bool wakeUp)
         {
             SetGround(art.SoilTile(look / 5), Palette.WokenSoil);
-            SetIcon(art.AwakeDog(Coat), AwakeDogScale, Color.white);
-            SetMark(null);
-            label.text = "";
+            SetIcon(null, AwakeDogScale, Color.white);
+            ClearMarks();
+            icon.flipX = FacesLeft;
+            var wag = clips.Dog(Coat, Clips.Wag);
+            if (wakeUp)
+                dogAnimator.Play(clips.Dog(Coat, Clips.Wake), Clips.Wake.Fps, false,
+                    () => dogAnimator.Play(wag, Clips.Wag.Fps, true));
+            else
+                dogAnimator.PlayFromRandomFrame(wag, Clips.Wag.Fps);
         }
 
-        // Kazanınca: hiç uyanmayan köpekler kıvrılıp uyurken görünür.
+        // Kazanınca: hiç uyanmayan köpekler kıvrılmış, nefes alarak uyur.
         public void ShowSleepingDog()
         {
             SetGround(art.SoilTile(look / 5), Color.white);
-            SetIcon(art.CurledDog(Coat), SleepingDogScale, Color.white);
-            SetMark(null);
-            label.text = "";
+            SetIcon(null, SleepingDogScale, Color.white);
+            ClearMarks();
+            icon.flipX = FacesLeft;
+            dogAnimator.PlayFromRandomFrame(clips.Dog(Coat, Clips.Sleep), Clips.Sleep.Fps);
+        }
+
+        // Kedi gelince: köpek çimin üstünde kediye doğru havlar.
+        public void ShowBarkingDog(bool light, bool faceLeft)
+        {
+            SetGround(art.GrassTile(look / 7, light), Color.white);
+            SetIcon(null, AwakeDogScale, Color.white);
+            ClearMarks();
+            icon.flipX = faceLeft;
+            dogAnimator.Play(clips.Dog(Coat, Clips.Bark), Clips.Bark.Fps, true);
+        }
+
+        // Köpek kaçıp gittikten sonra kalan boş çukur.
+        public void ShowEmptyHole()
+        {
+            SetGround(art.SoilTile(look / 5), Palette.WokenSoil);
+            SetIcon(null, 1f, Color.white);
+            ClearMarks();
         }
 
         // Kaybedince: köpek olmayan yere konmuş mama kabı.
@@ -132,8 +178,8 @@ namespace UyuyanKopekler.Game
         {
             SetGround(art.GrassTile(look / 7, light), Palette.WrongBowl);
             SetIcon(art.Bowl, BowlScale, Palette.WithAlpha(Color.white, 0.5f));
+            ClearMarks();
             SetMark(art.IconCross);
-            label.text = "";
         }
 
         public void SetPressed(bool pressed)
@@ -218,6 +264,8 @@ namespace UyuyanKopekler.Game
         void SetIcon(Sprite sprite, float scale, Color color)
         {
             StopIconMotion();
+            dogAnimator.Stop();
+            icon.flipX = false;
             icon.sprite = sprite;
             icon.color = color;
             iconScale = scale;
@@ -229,6 +277,13 @@ namespace UyuyanKopekler.Game
         {
             float s = iconScale * factor;
             icon.transform.localScale = new Vector3(s, s, 1f);
+        }
+
+        void ClearMarks()
+        {
+            SetMark(null);
+            hint.sprite = null;
+            label.text = "";
         }
 
         void SetMark(Sprite sprite)

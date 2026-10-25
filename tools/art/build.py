@@ -22,12 +22,11 @@ OUT = os.path.join(ROOT, 'Assets', 'Resources', 'Art')
 FONTS_OUT = os.path.join(ROOT, 'Assets', 'Resources', 'Fonts')
 
 from sketch import Svg  # noqa: E402
-import dogs as D  # noqa: E402
+import rig  # noqa: E402
 import props as P  # noqa: E402
 import style as S  # noqa: E402
 
-# Her kürk için kulak tipi sabit: aynı renk köpek her pozda aynı köpek gibi görünsün.
-EARS = {'hardal': 'floppy', 'lacivert': 'floppy', 'mercan': 'pointy', 'pembe': 'floppy', 'nane': 'pointy', 'krem': 'pointy'}
+# Kürklerin dosya adlarında kullanılan İngilizce karşılıkları.
 ASCII = {'hardal': 'mustard', 'lacivert': 'navy', 'mercan': 'coral', 'pembe': 'pink', 'nane': 'mint', 'krem': 'cream'}
 
 
@@ -227,6 +226,19 @@ def bleed(img):
     return Image.fromarray(res, 'RGBA')
 
 
+CELL = 320  # kare sayfalarındaki bir karenin boyu (piksel)
+
+
+def sheet(frames, cols):
+    """Kareleri soldan sağa, yukarıdan aşağı dizerek tek görsel yapar."""
+    w, h = frames[0].size
+    rows = (len(frames) + cols - 1) // cols
+    out = Image.new('RGBA', (cols * w, rows * h), (0, 0, 0, 0))
+    for i, f in enumerate(frames):
+        out.alpha_composite(f, ((i % cols) * w, (i // cols) * h))
+    return out
+
+
 def build(fn, size, *args, seed=3, height=None, **kw):
     svg = Svg(size, height or size, seed=seed)
     fn(svg, *args, **kw)
@@ -252,12 +264,31 @@ def main():
     if os.path.isdir(OUT):
         shutil.rmtree(OUT)
 
-    # Köpekler
+    # Köpekler: her kürk için tek kare sayfası (sıra rig.DOG_FRAMES ile aynı)
     for i, coat in enumerate(S.COAT_ORDER):
-        name, ears = ASCII[coat], EARS[coat]
-        save_png(build(D.sleeping_dog, 512, coat, ears=ears, seed=i + 1), f'Dogs/sleep_{name}.png')
-        save_png(build(D.curled_pup, 512, coat, seed=i + 1), f'Dogs/curl_{name}.png')
-        save_png(build(D.awake_dog, 512, coat, ears=ears, seed=i + 1), f'Dogs/awake_{name}.png')
+        frames = []
+        for frame in rig.DOG_FRAMES:
+            svg = Svg(512, 512, seed=i + 1)
+            rig.draw_dog_frame(svg, coat, frame, seed=i + 1)
+            frames.append(render(svg, CELL, CELL))
+        save_png(bleed(sheet(frames, rig.DOG_SHEET_COLS)), f'Dogs/dog_{ASCII[coat]}.png')
+    frames = []
+    for frame in rig.CAT_FRAMES:
+        svg = Svg(512, 512, seed=7)
+        rig.draw_cat_frame(svg, frame)
+        frames.append(render(svg, CELL, CELL))
+    save_png(bleed(sheet(frames, rig.CAT_SHEET_COLS)), 'Dogs/cat.png')
+    save_png(build(rig.cat_icon, 256, seed=8), 'Icons/cat.png')
+
+    # Pati izi ipuçları (rakam yerine) ve toz bulutu
+    for n in range(1, 9):
+        save_png(build(rig.paw_hint, 192, n, seed=90 + n), f'Board/hint_{n}.png')
+    puffs = []
+    for f in range(3):
+        svg = Svg(128, 128, seed=95)
+        rig.puff(svg, f)
+        puffs.append(render(svg))
+    save_png(bleed(sheet(puffs, 3)), 'Board/puff.png')
 
     # Bahçe
     for v in range(3):

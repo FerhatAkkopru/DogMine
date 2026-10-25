@@ -8,6 +8,10 @@ namespace UyuyanKopekler.UI
     public sealed class DialogContent
     {
         public Sprite Icon { get; set; }
+
+        // Doluysa ikon yerine bu kareler oynar (ör. kuyruk sallayan köpek).
+        public Sprite[] IconFrames { get; set; }
+        public float IconFps { get; set; } = 6f;
         public string Title { get; set; }
         public string Body { get; set; }
 

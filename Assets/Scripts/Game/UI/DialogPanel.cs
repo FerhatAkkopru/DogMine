@@ -1,7 +1,9 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
+using UyuyanKopekler.Audio;
 
 namespace UyuyanKopekler.UI
 {
@@ -22,6 +24,8 @@ namespace UyuyanKopekler.UI
         RectOffset paddingWithoutIcon;
         VerticalLayoutGroup layout;
         Image icon;
+        SpriteAnimator iconAnimator;
+        ISoundPlayer sound;
         Text title;
         Text body;
         Button primary;
@@ -38,6 +42,7 @@ namespace UyuyanKopekler.UI
         {
             UiFactory.Stretch((RectTransform)transform);
             group = gameObject.AddComponent<CanvasGroup>();
+            sound = ui.Sound;
 
             var backdrop = ui.Picture(transform, "Karartma", null, Palette.Backdrop);
             backdrop.preserveAspect = false;
@@ -66,6 +71,7 @@ namespace UyuyanKopekler.UI
             icon = ui.Picture(cardRoot, "Çizim", null, Color.white);
             icon.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             UiFactory.Place(icon.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, IconOverlap), new Vector2(IconSize, IconSize));
+            iconAnimator = SpriteAnimator.For(icon);
 
             title = ui.Label(cardRoot, "Başlık", "", 72, Palette.Ink, TextAnchor.MiddleCenter, display: true);
             body = ui.Label(cardRoot, "Metin", "", 38, Palette.InkSoft);
@@ -88,9 +94,12 @@ namespace UyuyanKopekler.UI
         public void Show(DialogContent dialog)
         {
             content = dialog;
-            bool hasIcon = dialog.Icon != null;
+            bool animated = dialog.IconFrames != null && dialog.IconFrames.Length > 0;
+            bool hasIcon = dialog.Icon != null || animated;
             icon.gameObject.SetActive(hasIcon);
+            iconAnimator.Stop();
             icon.sprite = dialog.Icon;
+            if (animated) iconAnimator.Play(dialog.IconFrames, dialog.IconFps, true);
             layout.padding = hasIcon ? paddingWithIcon : paddingWithoutIcon;
             title.text = dialog.Title;
             body.gameObject.SetActive(!string.IsNullOrEmpty(dialog.Body));
@@ -102,6 +111,7 @@ namespace UyuyanKopekler.UI
             secondaryLabel.text = dialog.SecondaryLabel;
 
             IsOpen = true;
+            sound.Play(Sfx.Open);
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             group.blocksRaycasts = true;

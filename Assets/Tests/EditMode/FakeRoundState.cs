@@ -9,5 +9,6 @@ namespace UyuyanKopekler.Tests
         public int RevealedSafeCells { get; set; }
         public int HeartsLost { get; set; }
         public int Moves { get; set; }
+        public int Collected(ItemType type) => 0;
     }
 }

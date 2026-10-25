@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
+using UyuyanKopekler.Audio;
 
 namespace UyuyanKopekler.UI
 {
@@ -13,10 +15,24 @@ namespace UyuyanKopekler.UI
         public const float ShadowDepth = 10f;
 
         public IGameArt Art { get; }
+        public ClipLibrary Clips { get; }
+        public ISoundPlayer Sound { get; }
 
-        public UiFactory(IGameArt art)
+        public UiFactory(ClipLibrary clips, ISoundPlayer sound)
         {
-            Art = art;
+            Clips = clips;
+            Art = clips.Art;
+            Sound = sound;
+        }
+
+        // Kare kare oynayan resim (ör. kuyruk sallayan köpek).
+        public SpriteAnimator AnimatedPicture(Transform parent, string name, Sprite[] frames, float fps, bool randomStart = false)
+        {
+            var image = Picture(parent, name, frames[0], Color.white);
+            var animator = SpriteAnimator.For(image);
+            if (randomStart) animator.PlayFromRandomFrame(frames, fps);
+            else animator.Play(frames, fps, true);
+            return animator;
         }
 
         // ---------- Yerleşim yardımcıları ----------
@@ -180,13 +196,14 @@ namespace UyuyanKopekler.UI
             return button;
         }
 
-        static Button MakeButton(Card card)
+        Button MakeButton(Card card)
         {
             card.Face.raycastTarget = true;
             var button = card.Root.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             button.targetGraphic = card.Face;
+            button.onClick.AddListener(() => Sound.Play(Sfx.Tap));
             card.Root.gameObject.AddComponent<ButtonFeedback>().Init(button, card.Body, card.ShadowDepth);
             return button;
         }

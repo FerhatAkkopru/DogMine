@@ -9,6 +9,9 @@ namespace UyuyanKopekler.Art
     {
         const string Root = "Art/";
         const float UiPixelsPerUnit = 100f;
+        const int SheetCell = 320;      // kare sayfalarında bir karenin boyu (tools/art/build.py CELL)
+        const int DogSheetColumns = 5;  // rig.DOG_SHEET_COLS
+        const int CatSheetColumns = 4;  // rig.CAT_SHEET_COLS
         static readonly string[] Coats = { "mustard", "navy", "coral", "pink", "mint", "cream" };
 
         readonly Dictionary<string, Sprite> cache = new Dictionary<string, Sprite>();
@@ -30,9 +33,12 @@ namespace UyuyanKopekler.Art
         public Sprite Paper => Get("UI/paper", 100f, 0f);
 
         public int DogCoatCount => Coats.Length;
-        public Sprite SleepingDog(int coat) => World("Dogs/sleep_" + Coat(coat));
-        public Sprite CurledDog(int coat) => World("Dogs/curl_" + Coat(coat));
-        public Sprite AwakeDog(int coat) => World("Dogs/awake_" + Coat(coat));
+        public Sprite Dog(int coat, DogFrame frame) => Frame("Dogs/dog_" + Coat(coat), (int)frame, DogSheetColumns, SheetCell);
+        public Sprite Cat(CatFrame frame) => Frame("Dogs/cat", (int)frame, CatSheetColumns, SheetCell);
+        public Sprite CatIcon => World("Icons/cat");
+
+        public Sprite PawHint(int count) => World($"Board/hint_{Mathf.Clamp(count, 1, 8)}");
+        public Sprite Puff(int frame) => Frame("Board/puff", Mathf.Clamp(frame, 0, 2), 3, 128);
 
         public Sprite Heart => World("Items/heart");
         public Sprite HeartEmpty => World("Items/heart_empty");
@@ -64,16 +70,36 @@ namespace UyuyanKopekler.Art
 
         Sprite Sliced(string path, float pixelsPerUnit, float border) => Get(path, pixelsPerUnit, border);
 
+        // Kare sayfasından tek bir kare (soldan sağa, yukarıdan aşağı sıralı). Dünyada 1 birim.
+        Sprite Frame(string path, int index, int columns, int cell)
+        {
+            string key = path + "#" + index;
+            if (cache.TryGetValue(key, out var sprite)) return sprite;
+
+            var texture = LoadTexture(path);
+            int col = index % columns;
+            int row = index / columns;
+            var rect = new Rect(col * cell, texture.height - (row + 1) * cell, cell, cell);
+            if (rect.yMin < 0 || rect.xMax > texture.width) rect = new Rect(0, 0, texture.width, texture.height);
+            sprite = Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f), cell, 0, SpriteMeshType.FullRect);
+            sprite.name = key;
+            cache[key] = sprite;
+            return sprite;
+        }
+
+        static Texture2D LoadTexture(string path)
+        {
+            var texture = Resources.Load<Texture2D>(Root + path);
+            if (texture != null) return texture;
+            Debug.LogError($"Görsel bulunamadı: Resources/{Root}{path}.png — tools/art/build.py çalıştırıldı mı?");
+            return Texture2D.whiteTexture;
+        }
+
         Sprite Get(string path, float pixelsPerUnit, float border)
         {
             if (cache.TryGetValue(path, out var sprite)) return sprite;
 
-            var texture = Resources.Load<Texture2D>(Root + path);
-            if (texture == null)
-            {
-                Debug.LogError($"Görsel bulunamadı: Resources/{Root}{path}.png — tools/art/build.py çalıştırıldı mı?");
-                texture = Texture2D.whiteTexture;
-            }
+            var texture = LoadTexture(path);
             float ppu = pixelsPerUnit > 0f ? pixelsPerUnit : texture.width;
             sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f),
                 ppu, 0, SpriteMeshType.FullRect, new Vector4(border, border, border, border));

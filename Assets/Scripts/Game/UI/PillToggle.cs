@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using UyuyanKopekler.Art;
+using UyuyanKopekler.Audio;
 
 namespace UyuyanKopekler.UI
 {
@@ -15,6 +16,7 @@ namespace UyuyanKopekler.UI
 
         Card track;
         RectTransform knob;
+        ISoundPlayer sound;
         float knobPosition; // 0 = solda (kapalı), 1 = sağda (açık)
 
         public event Action<bool> Changed;
@@ -27,6 +29,7 @@ namespace UyuyanKopekler.UI
 
             var toggle = track.Root.gameObject.AddComponent<PillToggle>();
             toggle.track = track;
+            toggle.sound = ui.Sound;
 
             var knobCard = ui.Card(track.Body, "Topuz", Palette.White, 4f, circle: true);
             toggle.knob = knobCard.Root;
@@ -52,7 +55,11 @@ namespace UyuyanKopekler.UI
         // Ekran açılırken animasyonsuz yerine oturt.
         public void Snap() => Render(Value ? 1f : 0f);
 
-        void Flip() => SetValue(!Value, notify: true);
+        void Flip()
+        {
+            sound.Play(Sfx.Toggle);
+            SetValue(!Value, notify: true);
+        }
 
         void Update()
         {

@@ -1,3 +1,4 @@
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
 using UyuyanKopekler.Core;
 using UyuyanKopekler.UI;
@@ -9,11 +10,12 @@ namespace UyuyanKopekler.Game
     public sealed class AppController
     {
         readonly UiRoot ui;
-        readonly IGameArt art;
+        readonly ClipLibrary clips;
         readonly RoundController round;
         readonly ClassicMode classic;
         readonly AdventureMode adventure;
         readonly PlayerProgress progress;
+        readonly Inventory inventory;
         readonly GameSettings settings;
         readonly ISaveStore store;
         readonly Haptics haptics;
@@ -21,21 +23,23 @@ namespace UyuyanKopekler.Game
         IGameMode currentMode;
 
         public AppController(UiRoot ui, RoundController round, ClassicMode classic, AdventureMode adventure,
-            PlayerProgress progress, GameSettings settings, ISaveStore store, Haptics haptics, BackButton backButton)
+            PlayerProgress progress, Inventory inventory, GameSettings settings, ISaveStore store, Haptics haptics,
+            BackButton backButton)
         {
             this.ui = ui;
-            art = ui.Factory.Art;
+            clips = ui.Factory.Clips;
             this.round = round;
             this.classic = classic;
             this.adventure = adventure;
             this.progress = progress;
+            this.inventory = inventory;
             this.settings = settings;
             this.store = store;
             this.haptics = haptics;
 
             ui.Menu.ClassicPressed += StartClassic;
             ui.Menu.AdventurePressed += ShowMap;
-            ui.Menu.CollectionPressed += () => ShowScreen(ui.Collection);
+            ui.Menu.CollectionPressed += ShowCollection;
             ui.Menu.SettingsPressed += ShowSettings;
 
             ui.Map.BackPressed += ShowMenu;
@@ -46,6 +50,7 @@ namespace UyuyanKopekler.Game
             ui.Settings.BackPressed += ShowMenu;
             ui.Settings.VibrationChanged += OnVibrationChanged;
             ui.Settings.SoundChanged += OnSoundChanged;
+            ui.Settings.PawHintsChanged += OnPawHintsChanged;
             ui.Settings.ResetPressed += ConfirmReset;
 
             ui.Collection.BackPressed += ShowMenu;
@@ -88,6 +93,12 @@ namespace UyuyanKopekler.Game
             ShowScreen(ui.Settings);
         }
 
+        void ShowCollection()
+        {
+            ui.Collection.SetCounts(inventory);
+            ShowScreen(ui.Collection);
+        }
+
         void ShowScreen(UiScreen screen)
         {
             round.Hide();
@@ -106,9 +117,8 @@ namespace UyuyanKopekler.Game
         {
             if (!adventure.IsUnlocked(number)) return;
             var level = adventure.GetLevel(number);
-            ui.Dialog.Show(new DialogContent
+            ui.Dialog.Show(WithDog(number, Clips.SitWag, new DialogContent
             {
-                Icon = art.SleepingDog(number % art.DogCoatCount),
                 Title = $"Bölüm {number}",
                 Body = $"Hedef: {level.Goal.Title}\n{level.Board.Columns}×{level.Board.Rows} bahçe  ·  {level.Board.Dogs} köpek  ·  {level.Hearts} can",
                 PrimaryLabel = "Başla",
@@ -119,7 +129,7 @@ namespace UyuyanKopekler.Game
                     Play(adventure);
                 },
                 SecondaryLabel = "Vazgeç"
-            });
+            }));
         }
 
         void Play(IGameMode mode)
@@ -136,9 +146,8 @@ namespace UyuyanKopekler.Game
             string warning = currentMode == classic
                 ? "Çıkarsan bu koşu biter; puanın rekora sayılır."
                 : "Çıkarsan bu bölüme baştan başlarsın.";
-            ui.Dialog.Show(new DialogContent
+            ui.Dialog.Show(WithDog(3, Clips.Sleep, new DialogContent
             {
-                Icon = art.CurledDog(3),
                 Title = "Mola",
                 Body = $"Köpekler hâlâ uyuyor.\n{warning}",
                 PrimaryLabel = "Devam et",
@@ -146,7 +155,7 @@ namespace UyuyanKopekler.Game
                 SecondaryLabel = "Çık",
                 OnSecondary = ExitRound,
                 OnBack = round.Resume
-            });
+            }));
         }
 
         void ExitRound()
@@ -159,9 +168,9 @@ namespace UyuyanKopekler.Game
         void OnRoundFinished(RoundReport report)
         {
             SaveProgress();
-            ui.Dialog.Show(new DialogContent
+            var dog = report.IsVictory ? Clips.Happy : Clips.Bark;
+            ui.Dialog.Show(WithDog(report.IsVictory ? 0 : 2, dog, new DialogContent
             {
-                Icon = report.IsVictory ? art.CurledDog(0) : art.AwakeDog(2),
                 Title = report.Title,
                 Body = report.Body,
                 PrimaryLabel = report.PrimaryLabel,
@@ -169,7 +178,7 @@ namespace UyuyanKopekler.Game
                 OnPrimary = () => Handle(report.PrimaryAction),
                 SecondaryLabel = report.SecondaryLabel,
                 OnSecondary = () => Handle(report.SecondaryAction)
-            });
+            }));
         }
 
         void Handle(RoundAction action)
@@ -197,18 +206,23 @@ namespace UyuyanKopekler.Game
             SaveSettings();
         }
 
+        void OnPawHintsChanged(bool on)
+        {
+            settings.PawHints = on; // bir sonraki bahçede geçerli olur
+            SaveSettings();
+        }
+
         void ConfirmReset()
         {
-            ui.Dialog.Show(new DialogContent
+            ui.Dialog.Show(WithDog(1, Clips.Gasp, new DialogContent
             {
-                Icon = art.AwakeDog(1),
                 Title = "Emin misin?",
-                Body = "Rekorların ve açtığın bölümler silinecek.",
+                Body = "Rekorların, açtığın bölümler ve topladığın eşyalar silinecek.",
                 PrimaryLabel = "Sıfırla",
                 PrimaryColor = Palette.Coral,
                 OnPrimary = ResetProgress,
                 SecondaryLabel = "Vazgeç"
-            });
+            }));
         }
 
         void ResetProgress()
@@ -233,6 +247,14 @@ namespace UyuyanKopekler.Game
                 return;
             }
             if (ui.Current != ui.Menu) ShowMenu();
+        }
+
+        // Pencerenin üstünde oynayan köpek (kuyruk sallar, havlar, uyur...).
+        DialogContent WithDog(int coat, Clips.Clip<DogFrame> clip, DialogContent content)
+        {
+            content.IconFrames = clips.Dog(coat, clip);
+            content.IconFps = clip.Fps;
+            return content;
         }
 
         void SaveProgress() => store.Save(SaveKeys.Progress, progress);

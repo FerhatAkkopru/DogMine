@@ -13,7 +13,11 @@ namespace UyuyanKopekler.Game
             if (string.IsNullOrEmpty(json)) return new T();
             try
             {
-                return JsonUtility.FromJson<T>(json) ?? new T();
+                // Önce varsayılanlarla kur, sonra kayıttakileri üstüne yaz: eski kayıtlarda
+                // olmayan yeni alanlar (ör. kemik, pati izi ayarı) varsayılan değerini korur.
+                var data = new T();
+                JsonUtility.FromJsonOverwrite(json, data);
+                return data;
             }
             catch (ArgumentException e)
             {

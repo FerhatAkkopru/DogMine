@@ -3,13 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
 using UyuyanKopekler.Core;
 
 namespace UyuyanKopekler.UI
 {
     // Macera haritası: kâğıt üstünde aşağıdan yukarı kıvrılan noktalı bir patika ve bölüm düğmeleri.
-    // Bitenler nane yeşili + tik, sıradaki mercan ve yanında uyuyan bir köpek, kilitliler soluk + kilit.
+    // Bitenler nane yeşili + tik, sıradaki mercan ve yanında kuyruk sallayan bir köpek, kilitliler soluk + kilit.
     public sealed class AdventureMapScreen : UiScreen
     {
         const float NodeSize = 160f;
@@ -18,6 +19,8 @@ namespace UyuyanKopekler.UI
         const float BottomPadding = 200f;
         const float TopPadding = 240f;
         const int DotsBetweenNodes = 6;
+        const int GuideCoat = 2;
+        const float GuideSize = 200f;
 
         ScrollRect scroll;
         RectTransform content;
@@ -41,11 +44,11 @@ namespace UyuyanKopekler.UI
                 if (levels[i].State == LevelState.Current) focusIndex = i;
             }
 
-            // Sıradaki bölümün yanında kıvrılmış bir köpek uyur.
+            // Sıradaki bölümün yanında bir köpek oturup kuyruk sallar (kuyruğu patikanın dışına baksın).
             var at = NodePosition(focusIndex);
             float side = at.x > 0f ? -1f : 1f;
-            UiFactory.Place(guide, new Vector2(0.5f, 0f), at + new Vector2(side * 170f, 10f), new Vector2(170f, 170f));
-            guide.localScale = new Vector3(side > 0f ? -1f : 1f, 1f, 1f);
+            UiFactory.Place(guide, new Vector2(0.5f, 0f), at + new Vector2(side * 180f, 14f), new Vector2(GuideSize, GuideSize));
+            guide.localScale = new Vector3(side > 0f ? 1f : -1f, 1f, 1f);
         }
 
         protected override void BuildBackground(RectTransform root) => Ui.Background(root);
@@ -101,7 +104,7 @@ namespace UyuyanKopekler.UI
                 }
             }
 
-            guide = Ui.Picture(content, "Uyuyan köpek", Ui.Art.CurledDog(2), Color.white).rectTransform;
+            guide = (RectTransform)Ui.AnimatedPicture(content, "Rehber köpek", Ui.Clips.Dog(GuideCoat, Clips.SitWag), Clips.SitWag.Fps).transform;
 
             for (int i = 0; i < count; i++)
             {
@@ -135,18 +138,13 @@ namespace UyuyanKopekler.UI
 
         void Update()
         {
-            // Sıradaki bölüm nabız gibi atar, yanındaki köpek nefes alır.
+            // Sıradaki bölüm nabız gibi atar.
             float t = Time.unscaledTime;
             float pulse = 1f + Mathf.Sin(t * 4f) * 0.05f;
             for (int i = 0; i < nodes.Count; i++)
             {
                 float s = i == focusIndex && nodes[i].IsCurrent ? pulse : 1f;
                 nodes[i].Root.localScale = new Vector3(s, s, 1f);
-            }
-            if (guide != null)
-            {
-                float breath = Mathf.Sin(t * 1.9f) * 0.025f;
-                guide.localScale = new Vector3(Mathf.Sign(guide.localScale.x) * (1f + breath * 0.3f), 1f + breath, 1f);
             }
         }
 

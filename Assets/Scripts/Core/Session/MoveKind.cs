@@ -4,6 +4,7 @@ namespace UyuyanKopekler.Core
     {
         None,  // hiçbir şey olmadı (mama kabına dokunuldu, rakam tutmadı...)
         Dig,   // çimli kare kazıldı
-        Chord  // açık rakama dokunulup çevresi açıldı
+        Chord, // açık rakama dokunulup çevresi açıldı
+        Cat    // kedi bahçeye gönderildi
     }
 }

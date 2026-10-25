@@ -1,0 +1,2 @@
+Ogg sesler: uisfx (https://github.com/romainsimon/uisfx) — CC0 1.0 Universal (kamu malı).
+bark*.wav, meow.wav: tools/audio/build.py ile sentezlendi (projeye ait).

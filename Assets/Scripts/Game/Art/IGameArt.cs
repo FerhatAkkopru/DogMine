@@ -16,11 +16,15 @@ namespace UyuyanKopekler.Art
         Sprite Bowl { get; }
         Sprite Paper { get; }    // döşenebilir kâğıt dokusu
 
-        // Köpekler: aynı kürk numarası her pozda aynı köpek
+        // Köpekler: aynı kürk numarası her karede aynı köpek
         int DogCoatCount { get; }
-        Sprite SleepingDog(int coat); // başını patisine koymuş
-        Sprite CurledDog(int coat);   // simit gibi kıvrılmış
-        Sprite AwakeDog(int coat);    // uyanmış, havlıyor
+        Sprite Dog(int coat, DogFrame frame);
+        Sprite Cat(CatFrame frame);
+        Sprite CatIcon { get; }
+
+        // Açık karede rakam yerine pati izleri (1..8) ve koşarken çıkan toz (0..2)
+        Sprite PawHint(int count);
+        Sprite Puff(int frame);
 
         // Eşyalar (renkli)
         Sprite Heart { get; }

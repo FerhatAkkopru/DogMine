@@ -1,31 +1,37 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
 using UyuyanKopekler.Core;
 
 namespace UyuyanKopekler.UI
 {
-    // Ayarlar: titreşim, ses ve ilerlemeyi sıfırlama.
+    // Ayarlar: titreşim, ses, pati izi ipuçları ve ilerlemeyi sıfırlama.
     public sealed class SettingsScreen : UiScreen
     {
         const float CardWidth = 960f;
-        const float CardHeight = 600f;
+        const float CardHeight = 760f;
+        const float RowStep = 160f;
 
         PillToggle vibration;
         PillToggle sound;
+        PillToggle pawHints;
 
         public event Action BackPressed;
         public event Action<bool> VibrationChanged;
         public event Action<bool> SoundChanged;
+        public event Action<bool> PawHintsChanged;
         public event Action ResetPressed;
 
         public void Bind(GameSettings settings)
         {
             vibration.SetValue(settings.Vibration, notify: false);
             sound.SetValue(settings.Sound, notify: false);
+            pawHints.SetValue(settings.PawHints, notify: false);
             vibration.Snap();
             sound.Snap();
+            pawHints.Snap();
         }
 
         protected override void BuildBackground(RectTransform root) => Ui.Background(root);
@@ -40,21 +46,24 @@ namespace UyuyanKopekler.UI
                 new Vector2(0f, -(UiFactory.TopBarHeight + 80f)), new Vector2(CardWidth, CardHeight));
             var body = card.Body;
 
-            vibration = Row(body, "Titreşim", "Köpek uyanınca telefon titrer.", -56f);
+            float top = -56f;
+            vibration = Row(body, "Titreşim", "Köpek uyanınca telefon titrer.", top);
             vibration.Changed += value => VibrationChanged?.Invoke(value);
-            sound = Row(body, "Ses", "Sesler yakında geliyor.", -216f);
+            sound = Row(body, "Ses", "Kazı, havlama ve miyav sesleri.", top -= RowStep);
             sound.Changed += value => SoundChanged?.Invoke(value);
+            pawHints = Row(body, "Pati izleri", "Kapalıysa ipuçları rakamla gösterilir.", top -= RowStep);
+            pawHints.Changed += value => PawHintsChanged?.Invoke(value);
 
             var line = Ui.Picture(body, "Çizgi", Ui.Art.Underline, Palette.WithAlpha(Palette.Ink, 0.18f));
             line.preserveAspect = false;
-            UiFactory.Place(line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -380f), new Vector2(CardWidth - 140f, 16f));
+            UiFactory.Place(line.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, top - 164f), new Vector2(CardWidth - 140f, 16f));
 
             var reset = Ui.TextButton(body, "Sıfırla", "İlerlemeyi sıfırla", Palette.Coral, 46);
             UiFactory.Place((RectTransform)reset.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 64f), new Vector2(620f, 124f));
             reset.onClick.AddListener(() => ResetPressed?.Invoke());
 
-            var dog = Ui.Picture(safe, "Uyuyan köpek", Ui.Art.SleepingDog(4), Color.white);
-            UiFactory.Place(dog.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 300f), new Vector2(420f, 420f));
+            var dog = Ui.AnimatedPicture(safe, "Uyuyan köpek", Ui.Clips.Dog(4, Clips.Sleep), Clips.Sleep.Fps);
+            UiFactory.Place((RectTransform)dog.transform, new Vector2(0.5f, 0f), new Vector2(0f, 320f), new Vector2(480f, 480f));
 
             var footer = Ui.Label(safe, "Sürüm", $"Uyuyan Köpekler  ·  sürüm {Application.version}", 30, Palette.InkSoft);
             UiFactory.Place(footer.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(900f, 60f));

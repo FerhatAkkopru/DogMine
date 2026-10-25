@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace UyuyanKopekler.Core
 {
@@ -6,6 +7,8 @@ namespace UyuyanKopekler.Core
     // Hangi modda oynandığını bilmez; hedef dışarıdan verilir.
     public sealed class GameSession : IRoundState
     {
+        readonly Dictionary<ItemType, int> collected = new Dictionary<ItemType, int>();
+
         public BoardModel Board { get; }
         public IRoundGoal Goal { get; }
         public int MaxHearts { get; }
@@ -21,6 +24,7 @@ namespace UyuyanKopekler.Core
         public int SafeCellsLeft => Board.SafeCellsLeft;
         public int RevealedSafeCells => Board.RevealedSafeCount;
         public int HeartsLost => MaxHearts - Hearts;
+        public int Collected(ItemType type) => collected.TryGetValue(type, out int n) ? n : 0;
 
         public GameSession(BoardModel board, int hearts, IRoundGoal goal)
         {
@@ -55,10 +59,35 @@ namespace UyuyanKopekler.Core
             Status = RoundStatus.Playing;
             Moves++;
             Hearts = Math.Max(0, Hearts - reveal.WokenDogs.Count);
+            Count(reveal);
 
             Evaluate();
             var autoFlagged = Status == RoundStatus.Won ? Board.FlagRemainingDogs() : null;
             return new MoveResult(kind, reveal, autoFlagged);
+        }
+
+        // Kediyi çimli bir kareye gönderir: 3×3 alandaki köpekler ortaya çıkar, can gitmez.
+        // Bir hamle sayılır. Kedinin bedeli (kemik) bu sınıfın işi değil.
+        public MoveResult SendCat(Cell cell)
+        {
+            if (IsOver || !Board.Contains(cell) || Board.GetState(cell) != CellState.Hidden) return MoveResult.None;
+
+            var result = Board.SendCat(cell);
+            if (result.IsEmpty) return MoveResult.None;
+
+            Status = RoundStatus.Playing;
+            Moves++;
+            Count(result.Reveal);
+
+            Evaluate();
+            var autoFlagged = Status == RoundStatus.Won ? Board.FlagRemainingDogs() : null;
+            return new MoveResult(MoveKind.Cat, result.Reveal, autoFlagged, result.FoundDogs);
+        }
+
+        void Count(RevealResult reveal)
+        {
+            foreach (var item in reveal.Items)
+                collected[item.Type] = Collected(item.Type) + 1;
         }
 
         public bool ToggleFlag(Cell cell) => !IsOver && Board.ToggleFlag(cell);

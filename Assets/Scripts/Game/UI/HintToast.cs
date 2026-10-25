@@ -14,10 +14,10 @@ namespace UyuyanKopekler.UI
         Text label;
         Coroutine routine;
 
-        public static HintToast Create(UiFactory ui, Transform parent, float width)
+        public static HintToast Create(UiFactory ui, Transform parent, float width, float bottom = 34f)
         {
             var card = ui.Card(parent, "İpucu", Palette.Navy, 7f, circle: false, cornerScale: 1.2f);
-            UiFactory.Place(card.Root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 34f), new Vector2(width, 0f));
+            UiFactory.Place(card.Root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, bottom), new Vector2(width, 0f));
 
             // Yükseklik yazıya göre: düzen bileşenleri kartın köküne konur.
             var layout = card.Root.gameObject.AddComponent<VerticalLayoutGroup>();

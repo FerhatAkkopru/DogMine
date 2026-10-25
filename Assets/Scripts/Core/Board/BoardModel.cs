@@ -8,6 +8,7 @@ namespace UyuyanKopekler.Core
     public sealed class BoardModel
     {
         readonly bool[,] dogs;
+        readonly ItemType[,] items;
         readonly CellState[,] states;
         readonly int[,] nearby;
         readonly Random random;
@@ -30,6 +31,7 @@ namespace UyuyanKopekler.Core
             Config = config;
             this.random = random ?? throw new ArgumentNullException(nameof(random));
             dogs = new bool[config.Columns, config.Rows];
+            items = new ItemType[config.Columns, config.Rows];
             states = new CellState[config.Columns, config.Rows];
             nearby = new int[config.Columns, config.Rows];
         }
@@ -40,6 +42,7 @@ namespace UyuyanKopekler.Core
         public CellState GetState(Cell c) => states[c.X, c.Y];
         public bool HasDog(Cell c) => dogs[c.X, c.Y];
         public int GetNearbyDogs(Cell c) => nearby[c.X, c.Y];
+        public ItemType GetItem(Cell c) => items[c.X, c.Y];
 
         public IEnumerable<Cell> Neighbors(Cell c)
         {
@@ -69,7 +72,8 @@ namespace UyuyanKopekler.Core
 
         // ---------- Köpekleri yerleştirme ----------
 
-        // İlk dokunulan kare ve 8 komşusu köpeksiz kalacak şekilde rastgele yerleştirir.
+        // İlk dokunulan kare ve 8 komşusu köpeksiz kalacak şekilde rastgele yerleştirir,
+        // sonra güvenli karelerin altına eşyaları saklar.
         public void PlaceDogs(Cell safeCell)
         {
             EnsureNotPlaced();
@@ -88,6 +92,33 @@ namespace UyuyanKopekler.Core
             }
 
             FinishPlacement();
+            ScatterItems(ItemScatter.Roll(Config, random));
+        }
+
+        // Güvenli bir karenin altına eşya koyar (testler ve elle tasarlanmış bölümler için de).
+        public void PlaceItem(Cell cell, ItemType type)
+        {
+            if (!Contains(cell) || dogs[cell.X, cell.Y])
+                throw new ArgumentException($"{cell} eşya için uygun değil.");
+            items[cell.X, cell.Y] = type;
+        }
+
+        void ScatterItems(IReadOnlyDictionary<ItemType, int> counts)
+        {
+            var free = new List<Cell>();
+            foreach (var c in AllCells())
+                if (!dogs[c.X, c.Y] && states[c.X, c.Y] == CellState.Hidden) free.Add(c);
+
+            int next = 0;
+            foreach (var pair in counts)
+            {
+                for (int k = 0; k < pair.Value && next < free.Count; k++, next++)
+                {
+                    int j = random.Next(next, free.Count);
+                    (free[next], free[j]) = (free[j], free[next]);
+                    items[free[next].X, free[next].Y] = pair.Key;
+                }
+            }
         }
 
         // Köpekleri belirli karelere koyar (testler ve ileride elle tasarlanmış bölümler için).
@@ -137,7 +168,7 @@ namespace UyuyanKopekler.Core
             var revealed = new List<RevealedCell>();
             var woken = new List<Cell>();
             Dig(cell, 0, revealed, woken);
-            return new RevealResult(revealed, woken);
+            return new RevealResult(revealed, woken, CollectItems(revealed));
         }
 
         // Açık bir rakama dokunulduğunda: çevredeki mama kabı (ve uyanmış köpek) sayısı
@@ -163,7 +194,48 @@ namespace UyuyanKopekler.Core
             var revealed = new List<RevealedCell>();
             var woken = new List<Cell>();
             foreach (var t in targets) Dig(t, 1, revealed, woken);
-            return new RevealResult(revealed, woken);
+            return new RevealResult(revealed, woken, CollectItems(revealed));
+        }
+
+        // Kedi: seçilen kare ve 8 komşusundaki köpekleri ortaya çıkarır (üstlerine mama kabı
+        // konur, uyanmazlar). Seçilen karede köpek yoksa kare kazılır. Can gitmez.
+        public CatResult SendCat(Cell cell)
+        {
+            if (!Contains(cell) || states[cell.X, cell.Y] != CellState.Hidden) return CatResult.Empty;
+            if (!DogsPlaced) PlaceDogs(cell);
+
+            var found = new List<Cell>();
+            foreach (var c in Area(cell))
+            {
+                if (!dogs[c.X, c.Y] || states[c.X, c.Y] != CellState.Hidden) continue;
+                states[c.X, c.Y] = CellState.Flagged;
+                FlagCount++;
+                found.Add(c);
+            }
+
+            var reveal = dogs[cell.X, cell.Y] ? RevealResult.Empty : Reveal(cell);
+            return new CatResult(found, reveal);
+        }
+
+        // Kare ve 8 komşusu.
+        IEnumerable<Cell> Area(Cell c)
+        {
+            yield return c;
+            foreach (var n in Neighbors(c)) yield return n;
+        }
+
+        // Açılan karelerin altındaki eşyaları toplar (eşya kareden kalkar).
+        List<FoundItem> CollectItems(List<RevealedCell> revealed)
+        {
+            var found = new List<FoundItem>();
+            foreach (var r in revealed)
+            {
+                var type = items[r.Cell.X, r.Cell.Y];
+                if (type == ItemType.None) continue;
+                items[r.Cell.X, r.Cell.Y] = ItemType.None;
+                found.Add(new FoundItem(r.Cell, type));
+            }
+            return found;
         }
 
         // Mama kabı koyar ya da kaldırır. İlk kazıdan önce ve açık karelerde çalışmaz.

@@ -8,5 +8,8 @@ namespace UyuyanKopekler.Core
         int RevealedSafeCells { get; }
         int HeartsLost { get; }
         int Moves { get; }
+
+        // Bu turda çimin altından toplanan eşya sayısı.
+        int Collected(ItemType type);
     }
 }

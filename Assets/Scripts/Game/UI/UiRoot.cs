@@ -2,7 +2,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
-using UyuyanKopekler.Art;
+using UyuyanKopekler.Anim;
+using UyuyanKopekler.Audio;
 
 namespace UyuyanKopekler.UI
 {
@@ -23,7 +24,7 @@ namespace UyuyanKopekler.UI
         public DialogPanel Dialog { get; private set; }
         public UiScreen Current { get; private set; }
 
-        public static UiRoot Create(IGameArt art, Transform parent)
+        public static UiRoot Create(ClipLibrary clips, ISoundPlayer sound, Transform parent)
         {
             var go = new GameObject("Arayüz") { layer = UiFactory.UiLayer };
             go.transform.SetParent(parent, false);
@@ -41,7 +42,7 @@ namespace UyuyanKopekler.UI
             EnsureEventSystem(parent);
 
             var root = go.AddComponent<UiRoot>();
-            root.Factory = new UiFactory(art);
+            root.Factory = new UiFactory(clips, sound);
             root.screensLayer = UiFactory.Stretch(UiFactory.CreateRect("Ekranlar", go.transform));
 
             root.Menu = root.CreateScreen<MainMenuScreen>("Açılış");

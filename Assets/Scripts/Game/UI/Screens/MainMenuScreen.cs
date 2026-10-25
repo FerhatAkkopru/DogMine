@@ -3,30 +3,36 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UyuyanKopekler.Anim;
 using UyuyanKopekler.Art;
 
 namespace UyuyanKopekler.UI
 {
-    // Açılış ekranı: el yazısı başlık, köpek yatağında uyuyan üç köpek (nefes alırlar, Zzz çıkar),
-    // Klasik ve Macera düğmeleri, altta Koleksiyon ve Ayarlar.
+    // Açılış ekranı: el yazısı başlık, köpek yatağında uyuyan üç köpek (nefes alırlar, kulak
+    // kıpırdatırlar, Zzz çıkar), yatağın yanında kuyruk sallayan bekçi köpek; Klasik ve Macera
+    // düğmeleri, altta Koleksiyon ve Ayarlar.
     public sealed class MainMenuScreen : UiScreen
     {
         const float ZzzEverySeconds = 1.1f;
         static readonly Vector2 HeroSize = new Vector2(1000f, 560f);
 
-        // Yataktaki köpekler: kürk, poz, konum (yatak merkezine göre), boy, aynalı mı, nefes evresi
-        static readonly (int coat, bool curled, Vector2 position, float size, bool flip, float phase)[] Sleepers =
+        // Yataktaki köpekler: kürk, konum (yatak merkezine göre), boy, aynalı mı (sola bakar)
+        static readonly (int coat, Vector2 position, float size, bool flip)[] Sleepers =
         {
-            (1, false, new Vector2(-170f, 46f), 480f, false, 0f),   // lacivert, başını patisine koymuş
-            (0, true, new Vector2(208f, 58f), 400f, true, 1.7f),    // hardal, kıvrılmış
-            (3, true, new Vector2(22f, -6f), 270f, false, 3.1f),    // pembe yavru, öndeki
+            (1, new Vector2(-200f, 50f), 480f, false),  // lacivert, sağa bakıyor
+            (0, new Vector2(200f, 66f), 440f, true),    // hardal, sola bakıyor
+            (3, new Vector2(10f, -10f), 300f, false),   // pembe yavru, ikisinin arasında
         };
 
+        // Yatağın yanında oturan, kuyruk sallayan krem köpek
+        const int SitterCoat = 5;
+        static readonly Vector2 SitterPosition = new Vector2(390f, -150f);
+        const float SitterSize = 270f;
+
         // "Z"lerin çıktığı yerler (yatak merkezine göre): köpeklerin kafalarının üstü
-        static readonly Vector2[] ZzzSources = { new Vector2(-262f, 70f), new Vector2(300f, 92f), new Vector2(-30f, 40f) };
+        static readonly Vector2[] ZzzSources = { new Vector2(-40f, 70f), new Vector2(60f, 90f), new Vector2(120f, 0f) };
 
         RectTransform hero;
-        readonly List<(RectTransform rt, float phase)> breathers = new List<(RectTransform, float)>();
         readonly List<Text> zzzPool = new List<Text>();
         Text classicInfo;
         Text adventureInfo;
@@ -90,20 +96,14 @@ namespace UyuyanKopekler.UI
             var back = Ui.Picture(hero, "Yatak arkası", Ui.Art.BedBack, Color.white);
             UiFactory.Stretch(back.rectTransform);
 
+            // Her köpek kendi temposunda nefes alsın diye rastgele kareden başlar.
             foreach (var s in Sleepers)
-            {
-                var sprite = s.curled ? Ui.Art.CurledDog(s.coat) : Ui.Art.SleepingDog(s.coat);
-                var dog = Ui.Picture(hero, "Köpek", sprite, Color.white);
-                var rt = dog.rectTransform;
-                // Nefes alırken karnından yukarı doğru şişsin diye pivot alta yakın.
-                UiFactory.Place(rt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.2f),
-                    s.position + new Vector2(0f, -s.size * 0.3f), new Vector2(s.size, s.size));
-                rt.localScale = new Vector3(s.flip ? -1f : 1f, 1f, 1f);
-                breathers.Add((rt, s.phase));
-            }
+                Dog(s.coat, Clips.Sleep, s.position, s.size, s.flip);
 
             var front = Ui.Picture(hero, "Yatak önü", Ui.Art.BedFront, Color.white);
             UiFactory.Stretch(front.rectTransform);
+
+            Dog(SitterCoat, Clips.SitWag, SitterPosition, SitterSize, flip: true);
 
             for (int i = 0; i < 4; i++)
             {
@@ -112,6 +112,14 @@ namespace UyuyanKopekler.UI
                 z.gameObject.SetActive(false);
                 zzzPool.Add(z);
             }
+        }
+
+        void Dog(int coat, Clips.Clip<DogFrame> clip, Vector2 position, float size, bool flip)
+        {
+            var dog = Ui.AnimatedPicture(hero, "Köpek", Ui.Clips.Dog(coat, clip), clip.Fps, randomStart: true);
+            var rt = (RectTransform)dog.transform;
+            UiFactory.Place(rt, new Vector2(0.5f, 0.5f), position, new Vector2(size, size));
+            rt.localScale = new Vector3(flip ? -1f : 1f, 1f, 1f);
         }
 
         // Büyük mod düğmesi: üstte mod adı, altta küçük bilgi satırı. Bilgi yazısını döner.
@@ -146,15 +154,6 @@ namespace UyuyanKopekler.UI
 
         void Update()
         {
-            // Nefes: her köpek kendi temposunda hafifçe şişip iner.
-            float t = Time.unscaledTime;
-            foreach (var (rt, phase) in breathers)
-            {
-                float breath = Mathf.Sin(t * 1.9f + phase);
-                float flip = Mathf.Sign(rt.localScale.x);
-                rt.localScale = new Vector3(flip * (1f + breath * 0.008f), 1f + breath * 0.025f, 1f);
-            }
-
             zzzTimer += Time.unscaledDeltaTime;
             if (zzzTimer >= ZzzEverySeconds)
             {
